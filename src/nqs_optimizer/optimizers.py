@@ -25,7 +25,7 @@ class NNMaxCutOptimizer(object):
             lr=1e-3, momentum=0.9,
             nesterov=True,
             max_samples=3000,
-            drop_first=2500,
+            drop_first=2800,
             epochs=50
     ):
         """
