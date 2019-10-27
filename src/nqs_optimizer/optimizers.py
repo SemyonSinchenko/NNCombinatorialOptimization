@@ -22,10 +22,10 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1e-3, momentum=0.9,
+            lr=5e-4, momentum=0.9,
             nesterov=True,
-            max_samples=3000,
-            drop_first=2800,
+            max_samples=1000,
+            drop_first=800,
             epochs=50
     ):
         """
@@ -63,15 +63,14 @@ class NNMaxCutOptimizer(object):
     def fit(self):
         for epoch in range(self.epochs):
             with self.writer.as_default():
-                current_loss, avg_e = learning_step(
+                energies = learning_step(
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_list, self.optimizer,
                     self.loss
                 )
-                self.metric_loss(current_loss)
-                self.metric_energy(avg_e)
-                tf.summary.scalar("optimization_loss", self.metric_loss.result(), step=epoch)
+                self.metric_energy(energies)
+                tf.summary.scalar("min_e", tf.reduce_min(energies), step=epoch)
                 tf.summary.scalar("avg_energy", self.metric_energy.result(), step=epoch)
 
     def predict_state_probability(self, state):

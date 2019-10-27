@@ -88,24 +88,22 @@ def estimate_local_energy_of_state(state, network, edge_list):
             partial(estimate_superposition_part, state=state, network=network), edge_list, dtype=tf.float32
         )
     )
-    return energy + superposition
+    return (energy + superposition) / 2.0
 
 
 def estimate_local_energies(samples, network, edge_list):
     local_energy_of_state_closure = partial(estimate_local_energy_of_state, network=network, edge_list=edge_list)
-    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32)
+    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iteration=30)
 
 
 @tf.function
 def update_weights_step(samples, network, edge_list, optimizer, loss):
     with tf.GradientTape() as tape:
         energies = estimate_local_energies(samples, network, edge_list)
-        avg_energy = tf.reduce_mean(energies)
-        current_loss = loss(tf.ones(energies.shape[0], dtype=tf.float32) * avg_energy, energies)
-        grads = tape.gradient(current_loss, network.trainable_variables)
+        grads = tape.gradient(energies, network.trainable_variables)
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
-    return current_loss, energies
+    return energies
 
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_list, optimizer, loss):
