@@ -22,11 +22,11 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=5e-4, momentum=0.9,
+            lr=1e-3, momentum=0.9,
             nesterov=True,
-            max_samples=1000,
-            drop_first=800,
-            epochs=50
+            max_samples=2000,
+            drop_first=1700,
+            epochs=25
     ):
         """
 

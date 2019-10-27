@@ -84,16 +84,14 @@ def estimate_superposition_part(edge, state, network):
 def estimate_local_energy_of_state(state, network, edge_list):
     energy = estimate_energy_of_state(state, edge_list)
     superposition = tf.reduce_sum(
-        tf.map_fn(
-            partial(estimate_superposition_part, state=state, network=network), edge_list, dtype=tf.float32
-        )
+        tf.vectorized_map(partial(estimate_superposition_part, state=state, network=network), edge_list)
     )
     return (energy + superposition) / 2.0
 
 
 def estimate_local_energies(samples, network, edge_list):
     local_energy_of_state_closure = partial(estimate_local_energy_of_state, network=network, edge_list=edge_list)
-    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iteration=30)
+    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32)
 
 
 @tf.function
