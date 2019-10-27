@@ -91,7 +91,7 @@ def estimate_local_energy_of_state(state, network, edge_list):
 
 def estimate_local_energies(samples, network, edge_list):
     local_energy_of_state_closure = partial(estimate_local_energy_of_state, network=network, edge_list=edge_list)
-    return tf.vectorized_map(local_energy_of_state_closure, samples, dtype=tf.float32)
+    return tf.vectorized_map(local_energy_of_state_closure, samples)
 
 
 @tf.function
