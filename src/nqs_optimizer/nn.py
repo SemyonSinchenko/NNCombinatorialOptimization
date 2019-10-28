@@ -64,46 +64,48 @@ def estimate_energy_of_state(state, edge_list):
 
 
 @tf.function(experimental_relax_shapes=True)
-def get_permutation_value(p_state, state, pos, network):
+def get_permutation_value(pos, p_state, state, network):
     permuted = swap_node_in_state(state, pos)
-    p_other = tf.stop_gradient(get_state_probability(permuted, network))
+    p_other = get_state_probability(permuted, network)
 
     return p_other / (p_state + 1e-32)
 
 
 @tf.function(experimental_relax_shapes=True)
-def estimate_superposition_part(edge, state, network):
-    p_state = get_state_probability(state, network)
-    permute_1 = get_permutation_value(p_state, state, edge[0], network)
-    permute_2 = get_permutation_value(p_state, state, edge[1], network)
-
-    return (state[edge[0]] * state[edge[1]]) * (permute_1 + permute_2)
-
+def estimate_superposition_part(adjacency, permutation_probs, state):
+    return tf.reduce_sum(tf.multiply(tf.multiply(adjacency, (-state)), permutation_probs))
 
 @tf.function(experimental_relax_shapes=True)
-def estimate_local_energy_of_state(state, network, edge_list):
+def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
     energy = estimate_energy_of_state(state, edge_list)
-    superposition = tf.reduce_sum(
-        tf.map_fn(partial(estimate_superposition_part, state=state, network=network), edge_list, tf.float32)
+    p_state = get_state_probability(state, network)
+    all_permutaions = tf.map_fn(
+        partial(get_permutation_value, p_state=p_state, state=state, network=network),
+        tf.range(0, num_nodes, dtype=tf.int32)
     )
+
+    superposition = estimate_superposition_part(adjacency, all_permutaions, state)
+
     return (energy + superposition) / 2.0
 
 
-def estimate_local_energies(samples, network, edge_list):
-    local_energy_of_state_closure = partial(estimate_local_energy_of_state, network=network, edge_list=edge_list)
+def estimate_local_energies(samples, network, edge_list, adjacency):
+    local_energy_of_state_closure = partial(
+        estimate_local_energy_of_state, network=network, edge_list=edge_list, adjacency=adjacency
+    )
     return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iterations=50)
 
 
 @tf.function
-def update_weights_step(samples, network, edge_list, optimizer, loss):
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, loss):
     with tf.GradientTape() as tape:
-        energies = estimate_local_energies(samples, network, edge_list)
+        energies = estimate_local_energies(samples, network, edge_list, adjacency)
         grads = tape.gradient(energies, network.trainable_variables)
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
     return energies
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, optimizer, loss):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, loss):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, optimizer, loss)
+    return update_weights_step(samples, network, edge_list, adjacency, optimizer, loss)
