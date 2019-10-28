@@ -73,7 +73,7 @@ def get_permutation_value(pos, p_state, state, network):
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_superposition_part(adjacency, permutation_probs, state):
-    return tf.reduce_sum(tf.multiply(tf.multiply(adjacency, (-state)), permutation_probs))
+    return tf.reduce_sum(tf.multiply(tf.multiply(adjacency, (-state)), tf.reshape(permutation_probs, (1, -1))))
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
