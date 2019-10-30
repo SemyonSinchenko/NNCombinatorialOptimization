@@ -17,7 +17,7 @@ def edge_list2adjacency_martix(edge_list, num_nodes):
             elif e[1] == node:
                 indices.append([node, e[0]])
     
-    values = [1 for _, _ in enumerate(indices)]
+    values = [1.0 for _, _ in enumerate(indices)]
 
     return tf.SparseTensor(indices, values, dense_shape)
 

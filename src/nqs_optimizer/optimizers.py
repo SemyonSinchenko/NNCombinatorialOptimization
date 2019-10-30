@@ -41,7 +41,7 @@ class NNMaxCutOptimizer(object):
         print("TF version: " + tf.__version__)
         self.num_nodes = problem_dim
         self.edge_list = edge_list2edge_tensor(edge_list)
-        self.adjacency_matrix = edge_list2adjacency_martix(edge_list)
+        self.adjacency_matrix = edge_list2adjacency_martix(edge_list, self.num_nodes)
         nn_layers = [
             tf.keras.layers.Dense(num_hidden, activation=tf.nn.relu)
             for num_hidden in layers[1:]
@@ -68,7 +68,8 @@ class NNMaxCutOptimizer(object):
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
-                    self.optimizer, self.loss
+                    self.optimizer, self.loss,
+                    self.num_nodes
                 )
                 self.metric_energy(energies)
                 tf.summary.scalar("min_e", tf.reduce_min(energies), step=epoch)
