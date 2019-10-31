@@ -106,7 +106,7 @@ def estimate_all_real_energies(samples, edge_list):
 
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, loss):
-    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes, loss)
+    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
     avg_e = tf.stop_gradient(tf.reduce_mean(energies))
     with tf.GradientTape() as tape:
         network_outputs = tf.vectorized_map(
