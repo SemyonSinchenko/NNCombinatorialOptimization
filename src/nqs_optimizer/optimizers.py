@@ -22,9 +22,9 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1e-5,
-            max_samples=3000,
-            drop_first=250,
+            lr=1e-3,
+            max_samples=4000,
+            drop_first=2000,
             epochs=100
     ):
         """[summary]
@@ -36,10 +36,10 @@ class NNMaxCutOptimizer(object):
             logdir {[type]} -- [description]
         
         Keyword Arguments:
-            lr {[type]} -- [description] (default: {1e-5})
+            lr {[type]} -- [description] (default: {1e-3}))
             max_samples {int} -- [description] (default: {4000})
             drop_first {int} -- [description] (default: {2000})
-            epochs {int} -- [description] (default: {25})
+            epochs {int} -- [description] (default: {100})
         """
 
         print("TF version: " + tf.__version__)
