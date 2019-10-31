@@ -76,10 +76,9 @@ def estimate_superposition_part(adjacency, permutation_probs, state):
 def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
     energy = estimate_energy_of_state(state, edge_list)
     p_state = tf.stop_gradient(get_state_probability(state, network))
-    all_permutaions = tf.map_fn(
+    all_permutaions = tf.vectorized_map(
         partial(get_permutation_value, p_state=p_state, state=state, network=network),
-        tf.range(0, num_nodes, dtype=tf.int32),
-        dtype=tf.float32
+        tf.range(0, num_nodes, dtype=tf.int32)
     )
 
     superposition = estimate_superposition_part(adjacency, all_permutaions, state)

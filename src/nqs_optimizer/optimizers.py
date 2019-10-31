@@ -67,7 +67,7 @@ class NNMaxCutOptimizer(object):
                     self.edge_list, self.adjacency_matrix, 
                     self.optimizer, self.num_nodes
                 )
-                self.metric_energy(e)
+                
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
                 tf.summary.scalar("avg_energy", avg_e, step=epoch)
                 tf.summary.scalar("std_energy", std_e, step=epoch)
