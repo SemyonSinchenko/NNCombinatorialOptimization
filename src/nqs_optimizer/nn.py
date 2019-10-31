@@ -66,7 +66,10 @@ def estimate_energy_of_state(state, edge_list):
 @tf.function(experimental_relax_shapes=True)
 def get_permutation_value(pos, p_state, state, network):
     permuted = swap_node_in_state(state, pos)
-    return tf.stop_gradient(get_state_probability(permuted, network) / (p_state + 1e-32))
+    return tf.minimum(
+        tf.stop_gradient(get_state_probability(permuted, network) / (p_state + 1e-32)),
+        tf.constant(1.0)
+    )
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_superposition_part(adjacency, permutation_probs, state):

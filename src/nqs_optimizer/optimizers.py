@@ -22,10 +22,10 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1e-4, momentum=0.95,
+            lr=1e-5, momentum=0.9,
             nesterov=True,
             max_samples=3000,
-            drop_first=1500,
+            drop_first=2000,
             epochs=25
     ):
         """
@@ -67,7 +67,7 @@ class NNMaxCutOptimizer(object):
                     self.edge_list, self.adjacency_matrix, 
                     self.optimizer, self.num_nodes
                 )
-                
+
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
                 tf.summary.scalar("avg_energy", avg_e, step=epoch)
                 tf.summary.scalar("std_energy", std_e, step=epoch)
