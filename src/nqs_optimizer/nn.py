@@ -107,9 +107,11 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
         grads = tape.gradient(network_outputs * std, network.trainable_variables) 
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
-    real_energies = tf.vectorized_map(
+    real_energies = tf.map_fn(
         partial(estimate_energy_of_state, edge_list=edge_list),
-        samples
+        samples,
+        tf.float32,
+        parallel_iterations=100
     )
 
     return (energies, real_energies)
