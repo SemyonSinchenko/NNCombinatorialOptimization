@@ -66,19 +66,16 @@ def estimate_energy_of_state(state, edge_list):
 @tf.function(experimental_relax_shapes=True)
 def get_permutation_value(pos, p_state, state, network):
     permuted = swap_node_in_state(state, pos)
-    p_other = get_state_probability(permuted, network)
-
-    return p_other / (p_state + 1e-32)
-
+    return tf.stop_gradient(get_state_probability(permuted, network) / (p_state + 1e-32))
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_superposition_part(adjacency, permutation_probs, state):
-    return tf.sparse.reduce_sum(adjacency * tf.multiply(-state, tf.reshape(permutation_probs, (1, -1))))
+    return tf.stop_gradient(tf.sparse.reduce_sum(adjacency * tf.multiply(-state, tf.reshape(permutation_probs, (1, -1)))))
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
     energy = estimate_energy_of_state(state, edge_list)
-    p_state = get_state_probability(state, network)
+    p_state = tf.stop_gradient(get_state_probability(state, network))
     all_permutaions = tf.map_fn(
         partial(get_permutation_value, p_state=p_state, state=state, network=network),
         tf.range(0, num_nodes, dtype=tf.int32),
@@ -89,24 +86,29 @@ def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nod
 
     return (energy + superposition) / 2.0
 
-
+@tf.function
 def estimate_local_energies(samples, network, edge_list, adjacency, num_nodes):
     local_energy_of_state_closure = partial(
         estimate_local_energy_of_state, network=network, edge_list=edge_list, adjacency=adjacency, num_nodes=num_nodes
     )
-    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iterations=50)
+    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iterations=500)
 
 
-@tf.function
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, loss, num_nodes):
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes):
+    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
+    avg_e = tf.reduce_mean(energies)
+    std = tf.stop_gradient(tf.math.reduce_std(energies))
     with tf.GradientTape() as tape:
-        energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-        grads = tape.gradient(energies, network.trainable_variables)
+        network_outputs = tf.vectorized_map(
+            partial(get_state_probability, network=network),
+            samples
+        )
+        grads = tape.gradient(network_outputs * std, network.trainable_variables) 
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
-    return energies
+    return (energies, avg_e, std)
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, loss, num_nodes):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, adjacency, optimizer, loss, num_nodes)
+    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes)

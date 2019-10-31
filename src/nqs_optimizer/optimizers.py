@@ -22,10 +22,10 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1e-3, momentum=0.9,
+            lr=1e-4, momentum=0.95,
             nesterov=True,
-            max_samples=2000,
-            drop_first=1700,
+            max_samples=3000,
+            drop_first=1500,
             epochs=25
     ):
         """
@@ -51,9 +51,6 @@ class NNMaxCutOptimizer(object):
         
         self.network = tf.keras.Sequential(nn_layers)
         self.optimizer = tf.keras.optimizers.SGD(lr, momentum, nesterov)
-        self.loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
-        self.metric_loss = tf.keras.metrics.Mean("optimization_loss", tf.float32)
-        self.metric_energy = tf.keras.metrics.Mean("energy_avg", tf.float32)
 
         self.max_samples = max_samples
         self.drop_first = drop_first
@@ -64,16 +61,16 @@ class NNMaxCutOptimizer(object):
     def fit(self):
         for epoch in range(self.epochs):
             with self.writer.as_default():
-                energies = learning_step(
+                e, avg_e, std_e = learning_step(
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
-                    self.optimizer, self.loss,
-                    self.num_nodes
+                    self.optimizer, self.num_nodes
                 )
-                self.metric_energy(energies)
-                tf.summary.scalar("min_e", tf.reduce_min(energies), step=epoch)
-                tf.summary.scalar("avg_energy", self.metric_energy.result(), step=epoch)
+                self.metric_energy(e)
+                tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
+                tf.summary.scalar("avg_energy", avg_e, step=epoch)
+                tf.summary.scalar("std_energy", std_e, step=epoch)
 
     def predict_state_probability(self, state):
         return self.network.predict(np.array(state).reshape((-1, 1)))
