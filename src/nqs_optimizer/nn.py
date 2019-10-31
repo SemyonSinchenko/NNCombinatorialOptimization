@@ -98,7 +98,6 @@ def estimate_local_energies(samples, network, edge_list, adjacency, num_nodes):
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    avg_e = tf.reduce_mean(energies)
     std = tf.stop_gradient(tf.math.reduce_std(energies))
     with tf.GradientTape() as tape:
         network_outputs = tf.vectorized_map(
@@ -108,7 +107,12 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
         grads = tape.gradient(network_outputs * std, network.trainable_variables) 
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
-    return (energies, avg_e, std)
+    real_energies = tf.vectorized_map(
+        partial(estimate_energy_of_state, edge_list=edge_list),
+        samples
+    )
+
+    return (energies, real_energies)
 
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes):
