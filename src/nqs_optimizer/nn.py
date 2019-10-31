@@ -105,15 +105,16 @@ def estimate_all_real_energies(samples, edge_list):
     ) / 2.0
 
 
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes):
-    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    std = tf.stop_gradient(tf.math.reduce_std(energies))
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, loss):
+    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes, loss)
+    avg_e = tf.stop_gradient(tf.reduce_mean(energies))
     with tf.GradientTape() as tape:
         network_outputs = tf.vectorized_map(
             partial(get_state_probability, network=network),
             samples
         )
-        grads = tape.gradient(network_outputs * std, network.trainable_variables) 
+        loss = loss(energies / avg_e, network_outputs)
+        grads = tape.gradient(loss, network.trainable_variables) 
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
     real_energies = estimate_all_real_energies(samples, edge_list)
@@ -121,6 +122,6 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
     return (energies, real_energies)
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, loss):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes)
+    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, loss)
