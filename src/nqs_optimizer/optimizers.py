@@ -60,6 +60,8 @@ class NNMaxCutOptimizer(object):
         self.drop_first = drop_first
         self.epochs = epochs
 
+        self.loss = tf.keras.losses.Huber()
+
         self.writer = tf.summary.create_file_writer(logdir)
 
     def fit(self):
@@ -69,7 +71,8 @@ class NNMaxCutOptimizer(object):
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
-                    self.optimizer, self.num_nodes
+                    self.optimizer, self.num_nodes,
+                    self.loss
                 )
 
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
