@@ -23,9 +23,9 @@ class NNMaxCutOptimizer(object):
             layers,
             logdir,
             lr=1e-5,
-            max_samples=4000,
-            drop_first=2000,
-            epochs=25
+            max_samples=3000,
+            drop_first=250,
+            epochs=100
     ):
         """[summary]
         

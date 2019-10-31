@@ -95,6 +95,15 @@ def estimate_local_energies(samples, network, edge_list, adjacency, num_nodes):
     )
     return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iterations=500)
 
+@tf.function
+def estimate_all_real_energies(samples, edge_list):
+    return tf.map_fn(
+        partial(estimate_energy_of_state, edge_list=edge_list),
+        samples,
+        tf.float32,
+        parallel_iterations=100
+    ) / 2.0
+
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
@@ -107,12 +116,7 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
         grads = tape.gradient(network_outputs * std, network.trainable_variables) 
         optimizer.apply_gradients(zip(grads, network.trainable_variables))
 
-    real_energies = tf.map_fn(
-        partial(estimate_energy_of_state, edge_list=edge_list),
-        samples,
-        tf.float32,
-        parallel_iterations=100
-    )
+    real_energies = estimate_all_real_energies(samples, edge_list)
 
     return (energies, real_energies)
 
