@@ -15,5 +15,5 @@ if __name__ == "__main__":
     edge_list = read_unweighted_edge_list(GRAPH_100_VERTICES)
     problem_dim = get_num_nodes(edge_list)
 
-    nn = NNMaxCutOptimizer(edge_list, problem_dim, [100, 10, 5], "logdir", epochs=100)
+    nn = NNMaxCutOptimizer(edge_list, problem_dim, [25, 25, 25, 5], "logdir", epochs=100)
     nn.fit()
