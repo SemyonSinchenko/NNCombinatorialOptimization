@@ -104,24 +104,55 @@ def estimate_all_real_energies(samples, edge_list):
         parallel_iterations=100
     ) / 2.0
 
+@tf.function
+def estimate_stochastic_reconfiguration_matrix(derivs, lambda):
+    e_of_prod = tf.einsum("ij,jk -> ik", tf.linalg.adjoint(derivs), derivs)
+    avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
+    prod_of_e = tf.matmul(tf.linalg.adjoin(avg_deriv), avg_deriv)
+    
+    SS = e_of_prod - prod_of_e
+    reg_part = tf.eye(SS.shape[0], SS.shape[0])
+    
+    return SS + reg_part
 
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, loss):
+@tf.function
+def estimate_stochastic_gradients(derivs, energies, outputs):
+    SS = estimate_stochastic_reconfiguration_matrix(derivs)
+    e_of_prod = tf.reduce_mean(tf.multiply(derivs, energies), axis=0, keepdims=True)
+    prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
+    
+    forces = e_of_prod - prod_of_e
+    stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
+    return stochastic_gradients
+
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    avg_e = tf.stop_gradient(tf.reduce_mean(energies))
-    with tf.GradientTape() as tape:
+    with tf.GradientTape(persistent=True) as tape:
         network_outputs = tf.vectorized_map(
             partial(get_state_probability, network=network),
             samples
         )
-        loss = loss(energies / avg_e, network_outputs)
-        grads = tape.gradient(loss, network.trainable_variables) 
-        optimizer.apply_gradients(zip(grads, network.trainable_variables))
+        grads = [tape.gradients(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
+        new_grads = []
+        for i in range(num_layers):
+            for j in range(2):
+                new_grads.append(
+                    estimate_stochastic_gradients(
+                        tf.stack([tf.reshape(g_i[i * 2 + j], (-1, )) for g_i in grads]),
+                        energies,
+                        network_outputs
+                    )
+                )
+        
+        optimizer.apply_gradients(zip(new_grads, network.trainable_variables))
+        
+    del tape
 
     real_energies = estimate_all_real_energies(samples, edge_list)
 
     return (energies, real_energies)
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, loss):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, loss)
+    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers)
