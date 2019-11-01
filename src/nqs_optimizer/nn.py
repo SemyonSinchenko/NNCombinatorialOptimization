@@ -105,19 +105,19 @@ def estimate_all_real_energies(samples, edge_list):
     ) / 2.0
 
 @tf.function
-def estimate_stochastic_reconfiguration_matrix(derivs, lambda):
+def estimate_stochastic_reconfiguration_matrix(derivs, l1):
     e_of_prod = tf.einsum("ij,jk -> ik", tf.linalg.adjoint(derivs), derivs)
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.matmul(tf.linalg.adjoin(avg_deriv), avg_deriv)
     
     SS = e_of_prod - prod_of_e
-    reg_part = tf.eye(SS.shape[0], SS.shape[0])
+    reg_part = tf.eye(SS.shape[0], SS.shape[0]) * l1
     
     return SS + reg_part
 
 @tf.function
-def estimate_stochastic_gradients(derivs, energies, outputs, lambda):
-    SS = estimate_stochastic_reconfiguration_matrix(derivs, lambda)
+def estimate_stochastic_gradients(derivs, energies, outputs, l1):
+    SS = estimate_stochastic_reconfiguration_matrix(derivs, l1)
     e_of_prod = tf.reduce_mean(tf.multiply(derivs, energies), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
