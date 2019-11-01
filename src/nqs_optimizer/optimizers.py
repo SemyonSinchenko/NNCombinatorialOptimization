@@ -54,6 +54,7 @@ class NNMaxCutOptimizer(object):
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
         
         self.network = tf.keras.Sequential(nn_layers)
+        self.num_layers = len(nn_layers)
         self.optimizer = tf.keras.optimizers.SGD(lr)
 
         self.max_samples = max_samples
@@ -72,7 +73,7 @@ class NNMaxCutOptimizer(object):
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
                     self.optimizer, self.num_nodes,
-                    self.loss
+                    self.num_layers
                 )
 
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
