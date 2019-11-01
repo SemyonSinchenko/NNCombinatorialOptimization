@@ -132,7 +132,7 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
             partial(get_state_probability, network=network),
             samples
         )
-        grads = [tape.gradients(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
+        grads = [tape.gradient(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
         new_grads = []
         for i in range(num_layers):
             for j in range(2):
