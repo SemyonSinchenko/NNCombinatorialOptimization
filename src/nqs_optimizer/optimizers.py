@@ -22,10 +22,12 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1e-3,
+            lr=1.0e-3,
             max_samples=4000,
             drop_first=2000,
-            epochs=100
+            epochs=100,
+            reg_lambda=100.0,
+            lambda_decay=0.9
     ):
         """[summary]
         
@@ -36,10 +38,12 @@ class NNMaxCutOptimizer(object):
             logdir {[type]} -- [description]
         
         Keyword Arguments:
-            lr {[type]} -- [description] (default: {1e-3}))
+            lr {[float]} -- [description] (default: {1e-3}))
             max_samples {int} -- [description] (default: {4000})
             drop_first {int} -- [description] (default: {2000})
             epochs {int} -- [description] (default: {100})
+            reg_lambda {float} -- [description] (default: {100.0})
+            lambda_decay {float} -- [description] (default: {0.9})
         """
 
         print("TF version: " + tf.__version__)
@@ -60,6 +64,9 @@ class NNMaxCutOptimizer(object):
         self.max_samples = max_samples
         self.drop_first = drop_first
         self.epochs = epochs
+        
+        self.l1 = reg_lambda
+        self.l1_decay = lambda_decay
 
         self.loss = tf.keras.losses.Huber()
 
@@ -73,7 +80,7 @@ class NNMaxCutOptimizer(object):
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
                     self.optimizer, self.num_nodes,
-                    self.num_layers
+                    self.num_layers, self.l1
                 )
 
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
@@ -83,6 +90,8 @@ class NNMaxCutOptimizer(object):
                 tf.summary.scalar("min_real_energy", tf.reduce_min(real_e), step=epoch)
                 tf.summary.scalar("avg_real_energy", tf.reduce_mean(real_e), step=epoch)
                 tf.summary.scalar("std_real_energy", tf.math.reduce_std(real_e), step=epoch)
+                
+                self.l1 = max([self.l1 * self.l1_decay, 1.0e-4])
 
     def predict_state_probability(self, state):
         return self.network.predict(np.array(state).reshape((-1, 1)))
