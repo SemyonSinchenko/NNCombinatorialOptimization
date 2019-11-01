@@ -116,8 +116,8 @@ def estimate_stochastic_reconfiguration_matrix(derivs, lambda):
     return SS + reg_part
 
 @tf.function
-def estimate_stochastic_gradients(derivs, energies, outputs):
-    SS = estimate_stochastic_reconfiguration_matrix(derivs)
+def estimate_stochastic_gradients(derivs, energies, outputs, lambda):
+    SS = estimate_stochastic_reconfiguration_matrix(derivs, lambda)
     e_of_prod = tf.reduce_mean(tf.multiply(derivs, energies), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
@@ -125,7 +125,7 @@ def estimate_stochastic_gradients(derivs, energies, outputs):
     stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
     return stochastic_gradients
 
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers):
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
     with tf.GradientTape(persistent=True) as tape:
         network_outputs = tf.vectorized_map(
@@ -140,7 +140,8 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
                     estimate_stochastic_gradients(
                         tf.stack([tf.reshape(g_i[i * 2 + j], (-1, )) for g_i in grads]),
                         energies,
-                        network_outputs
+                        network_outputs,
+                        l1
                     )
                 )
         
@@ -153,6 +154,6 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
     return (energies, real_energies)
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers)
+    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1)
