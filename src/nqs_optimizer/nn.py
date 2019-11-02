@@ -131,30 +131,28 @@ def estimate_stochastic_gradients(derivs, energies, outputs, l1):
     return stochastic_gradients
 
 @tf.function
-def get_network_gradients(samples, network, num_samples):
-    network_outputs = tf.vectorized_map(
-        partial(get_state_probability, network=network),
-        samples
-    )
+def get_out_and_grad(state, network):
+    o = get_state_probability(state, network)
+    g = tf.gradients(o, network.trainable_variables)
 
-    grads = [
-        tf.gradients(net_output, network.trainable_variables) 
-        for net_output in tf.unstack(network_outputs, num=num_samples)
-    ]
+    return o, g
 
-    return (network_outputs, grads)
-    
+@tf.function
+def get_network_gradients(samples, network):
+    outs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network))
+
+    return (tf.reshape(tf.stack(outs), (-1, 1)), grads)
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, n_samples):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    network_outputs, grads = get_network_gradients(samples, network, n_samples)
+    network_outputs, grads = get_network_gradients(samples, network)
 
     new_grads = []
     for i in range(num_layers):
         for j in range(2):
             new_grads.append(
                 estimate_stochastic_gradients(
-                    tf.stack([tf.reshape(g_i[i * 2 + j], (-1, )) for g_i in grads]),
+                    tf.reshape(grads[i* 2 + j], (n_samples, -1)),
                     energies,
                     network_outputs,
                     l1
