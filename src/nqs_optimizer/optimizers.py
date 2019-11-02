@@ -7,7 +7,7 @@ from random import randint, random
 
 import numpy as np
 import tensorflow as tf  # tf.__version__ >= 2.0
-from .opp import edge_list2edge_tensor, edge_list2adjacency_martix
+from .opp import edge_list2extended_edge_list
 from .nn import learning_step, generate_samples
 
 
@@ -22,7 +22,7 @@ class NNMaxCutOptimizer(object):
             max_samples=5000,
             drop_first=100,
             epochs=200,
-            reg_lambda=50.0,
+            reg_lambda=100.0,
             lambda_decay=0.9
     ):
         """[summary]
@@ -45,8 +45,7 @@ class NNMaxCutOptimizer(object):
 
         print("TF version: " + tf.__version__)
         self.num_nodes = problem_dim
-        self.edge_list = edge_list2edge_tensor(edge_list)
-        self.adjacency_matrix = edge_list2adjacency_martix(edge_list, self.num_nodes)
+        self.edge_ext = edge_list2extended_edge_list(edge_list, problem_dim)
         nn_layers = [
             tf.keras.layers.Dense(num_hidden, activation=tf.nn.relu)
             for num_hidden in layers[1:]
@@ -77,8 +76,7 @@ class NNMaxCutOptimizer(object):
                 e = learning_step(
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
-                    self.edge_list, self.adjacency_matrix, 
-                    self.optimizer, self.num_nodes,
+                    self.edge_ext, self.optimizer, 
                     self.num_layers, self.l1
                 )
 

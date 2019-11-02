@@ -76,54 +76,9 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
 
 
 @tf.function(experimental_relax_shapes=True)
-def estimate_energy_of_state(state, edge_list):
-    return tf.reduce_sum(tf.map_fn(lambda edge: state[edge[0]] * state[edge[1]] - 1, edge_list, dtype=tf.float32))
+def estimate_energy_of_state(state, extended_edge_list):
+    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 2.0
 
-
-@tf.function(experimental_relax_shapes=True)
-def get_permutation_value(pos, p_state, state, network):
-    permuted = swap_node_in_state(state, pos)
-    return tf.minimum(
-        tf.stop_gradient(get_state_probability(permuted, network) / (p_state + 1e-32)),
-        tf.constant(1.0)
-    )
-
-@tf.function(experimental_relax_shapes=True)
-def estimate_superposition_part(adjacency, permutation_probs, state):
-    return tf.stop_gradient(
-        tf.sparse.reduce_sum(
-            adjacency * tf.multiply(permutation_probs, -state)
-        )
-    )
-
-@tf.function(experimental_relax_shapes=True)
-def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
-    energy = estimate_energy_of_state(state, edge_list)
-    p_state = tf.stop_gradient(get_state_probability(state, network))
-    all_permutaions = tf.vectorized_map(
-        partial(get_permutation_value, p_state=p_state, state=state, network=network),
-        tf.range(0, num_nodes, dtype=tf.int32)
-    )
-
-    superposition = estimate_superposition_part(adjacency, all_permutaions, state)
-
-    return (energy + superposition) / 2.0
-
-@tf.function
-def estimate_local_energies(samples, network, edge_list, adjacency, num_nodes):
-    local_energy_of_state_closure = partial(
-        estimate_local_energy_of_state, network=network, edge_list=edge_list, adjacency=adjacency, num_nodes=num_nodes
-    )
-    return tf.map_fn(local_energy_of_state_closure, samples, dtype=tf.float32, parallel_iterations=500)
-
-@tf.function
-def estimate_all_real_energies(samples, edge_list):
-    return tf.map_fn(
-        partial(estimate_energy_of_state, edge_list=edge_list),
-        samples,
-        tf.float32,
-        parallel_iterations=100
-    ) / 2.0
 
 @tf.function
 def estimate_stochastic_reconfiguration_matrix(derivs, l1):
@@ -136,6 +91,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, l1):
     
     return SS + reg_part
 
+
 @tf.function
 def estimate_stochastic_gradients(derivs, energies, outputs, l1):
     SS = estimate_stochastic_reconfiguration_matrix(derivs, l1)
@@ -147,6 +103,7 @@ def estimate_stochastic_gradients(derivs, energies, outputs, l1):
 
     return stochastic_gradients
 
+
 @tf.function
 def get_out_and_grad(state, network):
     o = get_state_probability(state, network)
@@ -154,16 +111,17 @@ def get_out_and_grad(state, network):
 
     return o, g
 
+
 @tf.function
-def get_network_gradients(samples, network):
-    outs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-
-    return (tf.expand_dims(tf.stack(outs), 1), grads)
-
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, n_samples):
-    #energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    network_outputs, grads = get_network_gradients(samples, network)
-    energies = estimate_all_real_energies(samples, edge_list)
+def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n_samples):
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
+    network_outputs = tf.expand_dims(tf.stack(network_outputs), 1)
+    energies = tf.map_fn(
+        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
+        samples,
+        tf.float32,
+        parallel_iterations=n_samples
+    )
 
     new_grads = []
     for i in range(num_layers):
@@ -186,9 +144,9 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
     return energies
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers, l1):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
     num_real_samples = num_samples - drop_first
     return update_weights_step(
-        samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, num_real_samples
+        samples, network, edge_ext, optimizer, num_layers, l1, num_real_samples
     )
