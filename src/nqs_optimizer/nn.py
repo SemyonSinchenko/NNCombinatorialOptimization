@@ -73,7 +73,11 @@ def get_permutation_value(pos, p_state, state, network):
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_superposition_part(adjacency, permutation_probs, state):
-    return tf.stop_gradient(tf.sparse.reduce_sum(adjacency * tf.multiply(-state, tf.reshape(permutation_probs, (1, -1)))))
+    return tf.stop_gradient(
+        tf.sparse.reduce_sum(
+            adjacency * tf.multiply(-state, tf.reshape(permutation_probs, (1, -1)))
+        )
+    )
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_local_energy_of_state(state, network, edge_list, adjacency, num_nodes):
@@ -123,16 +127,25 @@ def estimate_stochastic_gradients(derivs, energies, outputs, l1):
     
     forces = e_of_prod - prod_of_e
     stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
+
     return stochastic_gradients
+
+@tf.function
+def get_network_gradients(samples, network):
+    network_outputs = tf.vectorized_map(
+        partial(get_state_probability, network=network),
+        samples
+    )
+
+    grads = [tf.gradients(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
+
+    return (network_outputs, grads)
+    
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    with tf.GradientTape(persistent=True) as tape:
-        network_outputs = tf.vectorized_map(
-            partial(get_state_probability, network=network),
-            samples
-        )
-    grads = [tape.gradient(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
+    network_outputs, grads = get_network_gradients(samples, network)
+
     new_grads = []
     for i in range(num_layers):
         for j in range(2):

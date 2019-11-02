@@ -12,10 +12,6 @@ from .nn import learning_step, generate_samples
 
 
 class NNMaxCutOptimizer(object):
-    """
-
-    """
-
     def __init__(
             self,
             edge_list,
@@ -32,13 +28,14 @@ class NNMaxCutOptimizer(object):
         """[summary]
         
         Arguments:
+            object {[type]} -- [description]
             edge_list {[type]} -- [description]
             problem_dim {[type]} -- [description]
             layers {[type]} -- [description]
             logdir {[type]} -- [description]
         
         Keyword Arguments:
-            lr {[float]} -- [description] (default: {1e-3}))
+            lr {[type]} -- [description] (default: {1.0e-3})
             max_samples {int} -- [description] (default: {4000})
             drop_first {int} -- [description] (default: {2000})
             epochs {int} -- [description] (default: {100})
@@ -97,6 +94,15 @@ class NNMaxCutOptimizer(object):
         return self.network.predict(np.array(state).reshape((-1, 1)))
 
     def generate_samples(self, num_samples=None, drop_first=None):
+        """[summary]
+        
+        Keyword Arguments:
+            num_samples {[type]} -- [description] (default: {None})
+            drop_first {[type]} -- [description] (default: {None})
+        
+        Returns:
+            [type] -- [description]
+        """
         if num_samples is None:
             num_samples = self.max_samples
         if drop_first is None:
