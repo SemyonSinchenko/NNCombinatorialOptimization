@@ -178,7 +178,7 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
             )
         
     optimizer.apply_gradients(
-        (tf.reshape(g, weights.shape)) for g, weights in zip(new_grads, network.trainable_variables)
+        ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
     )
 
     return (energies, energies)
