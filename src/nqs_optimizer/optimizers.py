@@ -19,8 +19,8 @@ class NNMaxCutOptimizer(object):
             layers,
             logdir,
             lr=1.0e-3,
-            max_samples=4000,
-            drop_first=2000,
+            max_samples=1500,
+            drop_first=500,
             epochs=100,
             reg_lambda=100.0,
             lambda_decay=0.9
@@ -36,8 +36,8 @@ class NNMaxCutOptimizer(object):
         
         Keyword Arguments:
             lr {[type]} -- [description] (default: {1.0e-3})
-            max_samples {int} -- [description] (default: {4000})
-            drop_first {int} -- [description] (default: {2000})
+            max_samples {int} -- [description] (default: {1500})
+            drop_first {int} -- [description] (default: {500})
             epochs {int} -- [description] (default: {100})
             reg_lambda {float} -- [description] (default: {100.0})
             lambda_decay {float} -- [description] (default: {0.9})

@@ -35,7 +35,7 @@ def get_random_state_tensor(num_nodes):
 
 @tf.function(experimental_relax_shapes=True)
 def get_state_probability(state, network):
-    return network(tf.reshape(state, (1, -1)))
+    return network(tf.expand_dims(state, 1))
 
 
 @tf.function(experimental_relax_shapes=True)
@@ -84,7 +84,7 @@ def get_permutation_value(pos, p_state, state, network):
 def estimate_superposition_part(adjacency, permutation_probs, state):
     return tf.stop_gradient(
         tf.sparse.reduce_sum(
-            adjacency * tf.multiply(-state, tf.reshape(permutation_probs, (1, -1)))
+            adjacency * tf.multiply(-state, tf.expand_dims(permutation_probs, 1))
         )
     )
 
@@ -131,7 +131,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, l1):
 @tf.function
 def estimate_stochastic_gradients(derivs, energies, outputs, l1):
     SS = estimate_stochastic_reconfiguration_matrix(derivs, l1)
-    e_of_prod = tf.reduce_mean(tf.multiply(derivs, energies), axis=0, keepdims=True)
+    e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
@@ -150,7 +150,7 @@ def get_out_and_grad(state, network):
 def get_network_gradients(samples, network):
     outs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
 
-    return (tf.reshape(tf.stack(outs), (-1, 1)), grads)
+    return (tf.expand_dims(tf.stack(outs), 1), grads)
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, n_samples):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
