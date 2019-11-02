@@ -131,8 +131,7 @@ def estimate_stochastic_gradients(derivs, energies, outputs, l1):
     return stochastic_gradients
 
 @tf.function
-def get_network_gradients(samples, network):
-    num=samples.shape[0]
+def get_network_gradients(samples, network, num_samples):
     network_outputs = tf.vectorized_map(
         partial(get_state_probability, network=network),
         samples
@@ -140,15 +139,15 @@ def get_network_gradients(samples, network):
 
     grads = [
         tf.gradients(net_output, network.trainable_variables) 
-        for net_output in tf.unstack(network_outputs, num=num)
+        for net_output in tf.unstack(network_outputs, num=num_samples)
     ]
 
     return (network_outputs, grads)
     
 
-def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
+def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, n_samples):
     energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
-    network_outputs, grads = get_network_gradients(samples, network)
+    network_outputs, grads = get_network_gradients(samples, network, n_samples)
 
     new_grads = []
     for i in range(num_layers):
@@ -163,8 +162,6 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
             )
         
     optimizer.apply_gradients(zip(new_grads, network.trainable_variables))
-        
-    del tape
 
     real_energies = estimate_all_real_energies(samples, edge_list)
 
@@ -173,4 +170,7 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
     samples = generate_samples(problem_dim, network, num_samples, drop_first)
-    return update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1)
+    num_real_samples = num_samples - drop_first
+    return update_weights_step(
+        samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, num_real_samples
+    )
