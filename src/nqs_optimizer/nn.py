@@ -24,6 +24,14 @@ def swap_node_in_state(state, n):
 
 @tf.function(experimental_relax_shapes=True)
 def permute_tensor(state):
+    """Generate permuted state by swap a random node.
+    
+    Arguments:
+        state {tf.Tensor} -- state
+    
+    Returns:
+        tf.Tensor -- new state
+    """
     n = randint(0, state.shape[0])
 
     return swap_node_in_state(state, n)
@@ -84,7 +92,7 @@ def get_permutation_value(pos, p_state, state, network):
 def estimate_superposition_part(adjacency, permutation_probs, state):
     return tf.stop_gradient(
         tf.sparse.reduce_sum(
-            adjacency * tf.multiply(-state, tf.expand_dims(permutation_probs, 1))
+            adjacency * tf.multiply(permutation_probs, -state)
         )
     )
 
@@ -153,8 +161,9 @@ def get_network_gradients(samples, network):
     return (tf.expand_dims(tf.stack(outs), 1), grads)
 
 def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_nodes, num_layers, l1, n_samples):
-    energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
+    #energies = estimate_local_energies(samples, network, edge_list, adjacency, num_nodes)
     network_outputs, grads = get_network_gradients(samples, network)
+    energies = estimate_all_real_energies(samples, edge_list)
 
     new_grads = []
     for i in range(num_layers):
@@ -170,9 +179,7 @@ def update_weights_step(samples, network, edge_list, adjacency, optimizer, num_n
         
     optimizer.apply_gradients(zip(new_grads, network.trainable_variables))
 
-    real_energies = estimate_all_real_energies(samples, edge_list)
-
-    return (energies, real_energies)
+    return (energies, energies)
 
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_list, adjacency, optimizer, num_nodes, num_layers, l1):
