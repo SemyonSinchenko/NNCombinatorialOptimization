@@ -18,11 +18,11 @@ class NNMaxCutOptimizer(object):
             problem_dim,
             layers,
             logdir,
-            lr=1.0e-3,
-            max_samples=1500,
-            drop_first=500,
-            epochs=100,
-            reg_lambda=100.0,
+            optimizer,
+            max_samples=5000,
+            drop_first=100,
+            epochs=200,
+            reg_lambda=50.0,
             lambda_decay=0.9
     ):
         """[summary]
@@ -33,9 +33,9 @@ class NNMaxCutOptimizer(object):
             problem_dim {[type]} -- [description]
             layers {[type]} -- [description]
             logdir {[type]} -- [description]
+            optimizer {[type]} -- [description]
         
         Keyword Arguments:
-            lr {[type]} -- [description] (default: {1.0e-3})
             max_samples {int} -- [description] (default: {1500})
             drop_first {int} -- [description] (default: {500})
             epochs {int} -- [description] (default: {100})
@@ -56,7 +56,7 @@ class NNMaxCutOptimizer(object):
         
         self.network = tf.keras.Sequential(nn_layers)
         self.num_layers = len(nn_layers)
-        self.optimizer = tf.keras.optimizers.SGD(lr)
+        self.optimizer = optimizer
 
         self.max_samples = max_samples
         self.drop_first = drop_first
@@ -70,9 +70,11 @@ class NNMaxCutOptimizer(object):
         self.writer = tf.summary.create_file_writer(logdir)
 
     def fit(self):
+        """Fit the network."""
+
         for epoch in range(self.epochs):
             with self.writer.as_default():
-                e, real_e = learning_step(
+                e = learning_step(
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_list, self.adjacency_matrix, 
@@ -82,11 +84,7 @@ class NNMaxCutOptimizer(object):
 
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
                 tf.summary.scalar("avg_energy", tf.reduce_mean(e), step=epoch)
-                tf.summary.scalar("std_energy", tf.math.reduce_std(e), step=epoch)
-
-                tf.summary.scalar("min_real_energy", tf.reduce_min(real_e), step=epoch)
-                tf.summary.scalar("avg_real_energy", tf.reduce_mean(real_e), step=epoch)
-                tf.summary.scalar("std_real_energy", tf.math.reduce_std(real_e), step=epoch)
+                tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
                 
                 self.l1 = max([self.l1 * self.l1_decay, 1.0e-4])
 
@@ -103,6 +101,7 @@ class NNMaxCutOptimizer(object):
         Returns:
             [type] -- [description]
         """
+
         if num_samples is None:
             num_samples = self.max_samples
         if drop_first is None:
