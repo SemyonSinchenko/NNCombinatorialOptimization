@@ -10,6 +10,15 @@ import tensorflow as tf
 
 @tf.function(experimental_relax_shapes=True)
 def swap_node_in_state(state, n):
+    """Given a state and N swap N-th node in state. Do not modify input state.
+    
+    Arguments:
+        state {tf.Tensor} -- state
+        n {int} -- node number
+    
+    Returns:
+        tf.Tensor -- new state
+    """
     return tf.multiply(state, tf.where(tf.range(0, state.shape[0], 1) == n, -1.0, 1.0))
 
 
@@ -139,7 +148,7 @@ def get_out_and_grad(state, network):
 
 @tf.function
 def get_network_gradients(samples, network):
-    outs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network))
+    outs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
 
     return (tf.reshape(tf.stack(outs), (-1, 1)), grads)
 

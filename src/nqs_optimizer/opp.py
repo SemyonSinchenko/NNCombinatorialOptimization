@@ -10,11 +10,11 @@ def edge_list2adjacency_martix(edge_list, num_nodes):
     """Convert edge list to sparse Tensorflow adjacency matrix.
     
     Arguments:
-        edge_list {[list]} -- [edge list in the form list of lists]
-        num_nodes {[int]} -- [number of nodes in the graph]
+        edge_list {list[list[int]]} -- edge list in the form list of lists
+        num_nodes {int} -- number of nodes in the graph
     
     Returns:
-        [tf.SparseTensor] -- [sparse adjacency matrix with shape num_nodes x num_nodes]
+        tf.SparseTensor -- sparse adjacency matrix with shape num_nodes x num_nodes
     """
     dense_shape = [num_nodes, num_nodes]
     indices = []
@@ -35,10 +35,10 @@ def edge_list2edge_tensor(edge_list):
     """Convert python list of edge to Tensorflow Tensor
     
     Arguments:
-        edge_list {[list]} -- [edge list in the form list of lists]
+        edge_list {list[list[int]]} -- edge list in the form list of lists
     
     Returns:
-        [tf.Tensor] -- [dense Tensor with shape num_edges x 2]
+        tf.Tensor -- dense Tensor with shape num_edges x 2
     """
     res = deque()
 
