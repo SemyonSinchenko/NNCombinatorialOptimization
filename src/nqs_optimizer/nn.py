@@ -132,12 +132,16 @@ def estimate_stochastic_gradients(derivs, energies, outputs, l1):
 
 @tf.function
 def get_network_gradients(samples, network):
+    num=samples.shape[0]
     network_outputs = tf.vectorized_map(
         partial(get_state_probability, network=network),
         samples
     )
 
-    grads = [tf.gradients(net_output, network.trainable_variables) for net_output in tf.unstack(network_outputs)]
+    grads = [
+        tf.gradients(net_output, network.trainable_variables) 
+        for net_output in tf.unstack(network_outputs, num=num)
+    ]
 
     return (network_outputs, grads)
     
