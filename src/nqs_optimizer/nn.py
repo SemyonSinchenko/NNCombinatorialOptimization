@@ -35,7 +35,7 @@ def get_random_state_tensor(num_nodes):
 
 @tf.function(experimental_relax_shapes=True)
 def get_state_probability(state, network):
-    return network(tf.expand_dims(state, 1))
+    return network(tf.expand_dims(state, 0))
 
 
 @tf.function(experimental_relax_shapes=True)
