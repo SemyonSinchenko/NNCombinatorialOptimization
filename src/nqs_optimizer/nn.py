@@ -57,7 +57,9 @@ def get_state_probability(state, network):
 
 @tf.function(experimental_relax_shapes=True)
 def get_acceptance_prob(state, new_state, network):
-    return tf.stop_gradient(get_state_probability(new_state, network) / (get_state_probability(state, network)))
+    return tf.stop_gradient(
+        tf.square(get_state_probability(new_state, network)) / tf.square((get_state_probability(state, network)))
+    )
 
 
 @tf.function(experimental_relax_shapes=True)
@@ -153,7 +155,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
             )
         
     optimizer.apply_gradients(
-        ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
+        ((tf.reshape(g * 2.0, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
     )
 
     return energies
@@ -165,4 +167,4 @@ def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optim
 
     energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, num_real_samples)
 
-    return energies, accepted / num_samples
+    return energies, accepted / tf.constant(num_samples, tf.float32)
