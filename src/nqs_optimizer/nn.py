@@ -63,25 +63,27 @@ def get_acceptance_prob(state, new_state, network):
 @tf.function(experimental_relax_shapes=True)
 def get_new_state(state, new_state, network):
     accept_prob = get_acceptance_prob(state, new_state, network)
-    if accept_prob >= tf.random.uniform((1, 1)):
-        return new_state
+    if accept_prob >= tf.random.uniform((1, 1), 0.0, 1.0, tf.float32):
+        return (new_state, tf.constant(1.0))
     else:
-        return state
+        return (state, tf.constant(0.0))
 
 
 def generate_samples(problem_dim, network, num_samples, drop_first):
     state = get_random_state_tensor(problem_dim)
     samples = deque()
+    accepted = tf.constant(0.0)
 
     for _ in range(num_samples):
         permuted = permute_tensor(state)
-        state = get_new_state(state, permuted, network)
+        state, acc = get_new_state(state, permuted, network)
         samples.append(state)
+        accepted += acc
 
     for _ in range(drop_first):
         samples.popleft()
 
-    return tf.stack(samples)
+    return (tf.stack(samples), accepted)
 
 
 @tf.function(experimental_relax_shapes=True)
@@ -158,8 +160,9 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
 
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers, l1):
-    samples = generate_samples(problem_dim, network, num_samples, drop_first)
+    samples, accepted = generate_samples(problem_dim, network, num_samples, drop_first)
     num_real_samples = num_samples - drop_first
-    return update_weights_step(
-        samples, network, edge_ext, optimizer, num_layers, l1, num_real_samples
-    )
+
+    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, num_real_samples)
+
+    return energies, accepted / num_samples

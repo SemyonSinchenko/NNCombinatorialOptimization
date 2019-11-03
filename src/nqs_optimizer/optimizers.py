@@ -75,7 +75,7 @@ class NNMaxCutOptimizer(object):
 
         for epoch in range(self.epochs):
             with self.writer.as_default():
-                e = learning_step(
+                e, acc_rat = learning_step(
                     self.num_nodes, self.network,
                     self.max_samples, self.drop_first,
                     self.edge_ext, self.optimizer, 
@@ -85,6 +85,7 @@ class NNMaxCutOptimizer(object):
                 tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
                 tf.summary.scalar("avg_energy", tf.reduce_mean(e), step=epoch)
                 tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
+                tf.summary.scalar("acceptance_ration", acc_rat, step=epoch)
                 
                 self.l1 = max([self.l1 * self.l1_decay, 1.0e-4])
 
