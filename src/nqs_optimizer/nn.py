@@ -38,6 +38,15 @@ def permute_tensor(state):
 
 
 def get_random_state_tensor(num_nodes):
+    """Generate random state.
+    
+    Arguments:
+        num_nodes {int} -- number of nodes
+    
+    Returns:
+        tf.Tensor -- state
+    """
+
     return tf.cast(tf.random.uniform((num_nodes,), 0, 2, tf.int32) * 2 - 1, dtype=tf.float32)
 
 
@@ -77,7 +86,9 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_energy_of_state(state, extended_edge_list):
-    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 2.0
+    return tf.reduce_sum(
+        tf.math.abs(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1)) - 2.0
+    ) / 2.0
 
 
 @tf.function
