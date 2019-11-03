@@ -48,7 +48,7 @@ def get_state_probability(state, network):
 
 @tf.function(experimental_relax_shapes=True)
 def get_acceptance_prob(state, new_state, network):
-    return tf.stop_gradient(get_state_probability(new_state, network) / (get_state_probability(state, network) + 1e-32))
+    return tf.stop_gradient(get_state_probability(new_state, network) / (get_state_probability(state, network)))
 
 
 @tf.function(experimental_relax_shapes=True)
@@ -77,7 +77,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_energy_of_state(state, extended_edge_list):
-    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 4.0
+    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 2.0
 
 
 @tf.function
@@ -85,6 +85,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, l1, num_samples):
     e_of_prod = tf.einsum("ki,kj", derivs, derivs) / num_samples
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
+    tf.matmul(tf.linalg.adjoint(avg_deriv), avg_deriv)
     
     SS = e_of_prod - prod_of_e
     reg_part = tf.eye(SS.shape[0], SS.shape[0]) * l1
