@@ -77,14 +77,14 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
 
 @tf.function(experimental_relax_shapes=True)
 def estimate_energy_of_state(state, extended_edge_list):
-    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 2.0
+    return tf.reduce_sum(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1) - 2.0) / 4.0
 
 
 @tf.function
-def estimate_stochastic_reconfiguration_matrix(derivs, l1):
-    e_of_prod = tf.einsum("ij,jk -> ik", tf.linalg.adjoint(derivs), derivs)
+def estimate_stochastic_reconfiguration_matrix(derivs, l1, num_samples):
+    e_of_prod = tf.einsum("ki,kj", derivs, derivs) / num_samples
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
-    prod_of_e = tf.matmul(tf.linalg.adjoint(avg_deriv), avg_deriv)
+    prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     
     SS = e_of_prod - prod_of_e
     reg_part = tf.eye(SS.shape[0], SS.shape[0]) * l1
@@ -93,8 +93,8 @@ def estimate_stochastic_reconfiguration_matrix(derivs, l1):
 
 
 @tf.function
-def estimate_stochastic_gradients(derivs, energies, outputs, l1):
-    SS = estimate_stochastic_reconfiguration_matrix(derivs, l1)
+def estimate_stochastic_gradients(derivs, energies, outputs, l1, num_samples):
+    SS = estimate_stochastic_reconfiguration_matrix(derivs, l1, num_samples)
     e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
@@ -133,7 +133,8 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
                     tf.reshape(grads[i* 2 + j], (n_samples, -1)),
                     energies,
                     network_outputs,
-                    l1
+                    l1,
+                    n_samples
                 )
             )
         
