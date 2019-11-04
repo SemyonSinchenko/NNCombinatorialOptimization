@@ -65,7 +65,7 @@ class NNMaxCutOptimizer(object):
         
         self.l1 = tf.constant(reg_lambda, tf.float32)
         self.l1_decay = tf.constant(lambda_decay, tf.float32)
-        self.__min_lambda = tf.constant(5.0, tf.float32)
+        self.__min_lambda = tf.constant(1.0, tf.float32)
 
         self.loss = tf.keras.losses.Huber()
 
@@ -88,7 +88,8 @@ class NNMaxCutOptimizer(object):
                 tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
                 tf.summary.scalar("acceptance_ration", acc_rat, step=epoch)
                 
-                self.l1 = max([self.l1 * self.l1_decay, 1.0e-2])
+                self.__update_reg_lambda()
+                print("Finished epoch %d" % epoch)
 
     def __update_reg_lambda(self):
         lambda_ = self.l1 * self.l1_decay

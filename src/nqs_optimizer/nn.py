@@ -84,16 +84,13 @@ def estimate_energy_of_state(state, extended_edge_list):
 
 
 @tf.function
-def estimate_stochastic_reconfiguration_matrix(derivs, l1, num_samples):
+def estimate_stochastic_reconfiguration_matrix(derivs, num_samples):
     e_of_prod = tf.einsum("ki,kj", derivs, derivs) / num_samples
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     tf.matmul(tf.linalg.adjoint(avg_deriv), avg_deriv)
     
-    SS = e_of_prod - prod_of_e
-    reg_part = tf.linalg.diag(tf.ones((SS.shape[0],), tf.float32) * l1)
-    
-    return SS + reg_part
+    return e_of_prod - prod_of_e
 
 
 @tf.function
@@ -103,7 +100,12 @@ def estimate_stochastic_gradients(derivs, energies, l1, num_samples):
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
-    stochastic_gradients = tf.matmul(moore_penrose_invert(SS), tf.linalg.adjoint(forces))
+    stochastic_gradients = tf.linalg.lstsq(
+        SS,
+        tf.linalg.adjoint(forces),
+        fast=True,
+        l2_regularizer=l1
+    )
 
     return stochastic_gradients
 
