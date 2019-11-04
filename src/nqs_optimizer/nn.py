@@ -146,7 +146,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
             # j==0: weights; j==1: biases
             new_grads.append(
                 estimate_stochastic_gradients(
-                    tf.reshape(grads[i* 2 + j], (n_samples, -1)),
+                    tf.reshape(grads[i* 2 + j], (n_samples, -1)) / tf.reshape(network_outputs, (n_samples, 1)),
                     energies,
                     l1,
                     n_samples
@@ -154,7 +154,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
             )
         
     optimizer.apply_gradients(
-        ((tf.reshape(g * -2.0, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
+        ((tf.reshape(g * 2.0, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
     )
 
     return energies
