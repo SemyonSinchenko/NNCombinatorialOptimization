@@ -22,21 +22,6 @@ def swap_node_in_state(state, n):
     return tf.multiply(state, tf.where(tf.range(0, state.shape[0], 1) == n, -1.0, 1.0))
 
 
-@tf.function(experimental_relax_shapes=True)
-def permute_tensor(state):
-    """Generate permuted state by swap a random node.
-    
-    Arguments:
-        state {tf.Tensor} -- state
-    
-    Returns:
-        tf.Tensor -- new state
-    """
-    n = randint(0, state.shape[0])
-
-    return swap_node_in_state(state, n)
-
-
 def get_random_state_tensor(num_nodes):
     """Generate random state.
     
@@ -77,7 +62,8 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
     accepted = tf.constant(0.0)
 
     for _ in range(num_samples):
-        permuted = permute_tensor(state)
+        n = tf.constant(randint(0, problem_dim))
+        permuted = swap_node_in_state(state, n)
         state, acc = get_new_state(state, permuted, network)
         samples.append(state)
         accepted += acc
