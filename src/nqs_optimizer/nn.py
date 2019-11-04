@@ -94,7 +94,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples):
 
 
 @tf.function
-def estimate_stochastic_gradients(derivs, energies, l1, num_samples):
+def estimate_stochastic_gradients(derivs, energies, num_samples):
     SS = estimate_stochastic_reconfiguration_matrix(derivs, num_samples)
     e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
@@ -103,8 +103,7 @@ def estimate_stochastic_gradients(derivs, energies, l1, num_samples):
     stochastic_gradients = tf.linalg.lstsq(
         SS,
         tf.linalg.adjoint(forces),
-        fast=True,
-        l2_regularizer=l1
+        fast=False
     )
 
     return stochastic_gradients
@@ -119,7 +118,7 @@ def get_out_and_grad(state, network):
 
 
 @tf.function
-def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n_samples):
+def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples):
     network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
     network_outputs = tf.stack(network_outputs)
     energies = tf.map_fn(
@@ -138,7 +137,6 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
                 estimate_stochastic_gradients(
                     tf.reshape(grads[i* 2 + j], (n_samples, -1)) / tf.reshape(network_outputs, (n_samples, 1)),
                     energies,
-                    l1,
                     n_samples
                 )
             )
@@ -150,10 +148,10 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, n
     return energies
 
 
-def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers, l1):
+def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers):
     samples, accepted = generate_samples(problem_dim, network, num_samples, drop_first)
     num_real_samples = num_samples - drop_first
 
-    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, l1, num_real_samples)
+    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples)
 
     return energies, accepted / tf.constant(num_samples, tf.float32)
