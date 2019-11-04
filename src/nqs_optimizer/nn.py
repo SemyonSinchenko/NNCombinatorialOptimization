@@ -7,6 +7,8 @@ from functools import partial
 from random import randint
 import tensorflow as tf
 
+from .linalg_opp import moore_penrose_invert
+
 
 @tf.function(experimental_relax_shapes=True)
 def swap_node_in_state(state, n):
@@ -89,7 +91,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, l1, num_samples):
     tf.matmul(tf.linalg.adjoint(avg_deriv), avg_deriv)
     
     SS = e_of_prod - prod_of_e
-    reg_part = tf.eye(SS.shape[0], SS.shape[0]) * l1
+    reg_part = tf.linalg.diag(tf.ones((SS.shape[0],), tf.float32) * l1)
     
     return SS + reg_part
 
@@ -101,7 +103,7 @@ def estimate_stochastic_gradients(derivs, energies, l1, num_samples):
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
-    stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
+    stochastic_gradients = tf.matmul(moore_penrose_invert(SS), tf.linalg.adjoint(forces))
 
     return stochastic_gradients
 
