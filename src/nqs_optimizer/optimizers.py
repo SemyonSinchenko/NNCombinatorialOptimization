@@ -22,7 +22,7 @@ class NNMaxCutOptimizer(object):
             max_samples=5000,
             drop_first=100,
             epochs=500,
-            reg_lambda=80.0,
+            reg_lambda=100.0,
             lambda_decay=0.9
     ):
         """[summary]
@@ -65,7 +65,7 @@ class NNMaxCutOptimizer(object):
         
         self.l1 = tf.constant(reg_lambda, tf.float32)
         self.l1_decay = tf.constant(lambda_decay, tf.float32)
-        self.__min_lambda = tf.constant(0.01, tf.float32)
+        self.__min_lambda = tf.constant(5.0, tf.float32)
 
         self.loss = tf.keras.losses.Huber()
 
