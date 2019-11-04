@@ -82,9 +82,9 @@ class NNMaxCutOptimizer(object):
                     self.num_layers, self.l1
                 )
 
-                tf.summary.scalar("min_energy", tf.reduce_min(e), step=epoch)
-                tf.summary.scalar("avg_energy", tf.reduce_mean(e), step=epoch)
-                tf.summary.scalar("variance_energy", tf.reduce_variance(e), step=epoch)
+                tf.summary.scalar("min_energy", tf.math.reduce_min(e), step=epoch)
+                tf.summary.scalar("avg_energy", tf.math.reduce_mean(e), step=epoch)
+                tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
                 tf.summary.scalar("acceptance_ration", acc_rat, step=epoch)
                 
                 self.l1 = max([self.l1 * self.l1_decay, 1.0e-4])
