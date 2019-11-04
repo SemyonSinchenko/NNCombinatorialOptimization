@@ -63,8 +63,9 @@ class NNMaxCutOptimizer(object):
         self.drop_first = drop_first
         self.epochs = epochs
         
-        self.l1 = reg_lambda
-        self.l1_decay = lambda_decay
+        self.l1 = tf.constant(reg_lambda, tf.float32)
+        self.l1_decay = tf.constant(lambda_decay, tf.float32)
+        self.__min_lambda = tf.constant(1.0e-1, tf.float32)
 
         self.loss = tf.keras.losses.Huber()
 
@@ -87,7 +88,14 @@ class NNMaxCutOptimizer(object):
                 tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
                 tf.summary.scalar("acceptance_ration", acc_rat, step=epoch)
                 
-                self.l1 = max([self.l1 * self.l1_decay, 1.0e-4])
+                self.l1 = max([self.l1 * self.l1_decay, 1.0e-2])
+
+    def __update_reg_lambda(self):
+        lambda_ = self.l1 * self.l1_decay
+        if lambda_ < self.__min_lambda:
+            self.l1 = self.__min_lambda
+        else:
+            self.l1 = lambda_
 
     def predict_state_probability(self, state):
         return self.network.predict(np.array(state).reshape((-1, 1)))
