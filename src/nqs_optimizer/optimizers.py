@@ -55,7 +55,7 @@ class NNMaxCutOptimizer(object):
         nn_layers.append(tf.keras.layers.Dense(1, activation=tf.nn.sigmoid))
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
 
-        print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.num_nodes, len(edge_list)))
+        print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
         
         self.network = tf.keras.Sequential(nn_layers)
         self.__num_layers = len(nn_layers)
@@ -74,6 +74,7 @@ class NNMaxCutOptimizer(object):
     def fit(self):
         """Fit the network."""
 
+        print("Start learning...")
         for epoch in range(self.__epochs):
             with self.__writer.as_default():
                 e, acc_rat = learning_step(
@@ -85,7 +86,7 @@ class NNMaxCutOptimizer(object):
                 self.__write_summary(e, acc_rat, epoch)
                 self.__update_reg_lambda()
 
-                print("Finished epoch %d" % epoch)
+                print("Finished epoch %d/%d" % (epoch, self.__epochs))
 
     def __write_summary(self, e, acc_rate, epoch):
         tf.summary.scalar("min_energy", tf.math.reduce_min(e), step=epoch)
