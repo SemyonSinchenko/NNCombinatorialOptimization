@@ -94,7 +94,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples):
 
 
 @tf.function
-def estimate_stochastic_gradients(derivs, energies, num_samples):
+def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     SS = estimate_stochastic_reconfiguration_matrix(derivs, num_samples)
     e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
@@ -103,7 +103,8 @@ def estimate_stochastic_gradients(derivs, energies, num_samples):
     stochastic_gradients = tf.linalg.lstsq(
         SS,
         tf.linalg.adjoint(forces),
-        fast=False
+        fast=True,
+        l2_regularizer=l2
     )
 
     return stochastic_gradients
@@ -118,7 +119,7 @@ def get_out_and_grad(state, network):
 
 
 @tf.function
-def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples):
+def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):
     network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
     network_outputs = tf.stack(network_outputs)
     energies = tf.map_fn(
@@ -137,7 +138,8 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
                 estimate_stochastic_gradients(
                     tf.reshape(grads[i* 2 + j], (n_samples, -1)) / tf.reshape(network_outputs, (n_samples, 1)),
                     energies,
-                    n_samples
+                    n_samples,
+                    l2
                 )
             )
         
