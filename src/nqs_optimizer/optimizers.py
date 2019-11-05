@@ -23,8 +23,8 @@ class NNMaxCutOptimizer(object):
             drop_first=100,
             epochs=500,
             reg_lambda=100.0,
-            lambda_decay=0.9,
-            min_lambda=5.0
+            lambda_decay=0.95,
+            min_lambda=0.1
     ):
         """[summary]
         
