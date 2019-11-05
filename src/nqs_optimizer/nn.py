@@ -113,7 +113,7 @@ def get_out_and_grad(state, network):
 @tf.function
 def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):
     network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-    network_outputs = tf.stack(network_outputs)
+    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
     energies = tf.map_fn(
         partial(estimate_energy_of_state, extended_edge_list=edge_ext),
         samples,
@@ -124,19 +124,23 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     new_grads = []
     for i in range(num_layers):
         # i - layer
-        for j in range(2):
-            # j==0: weights; j==1: biases
-            new_grads.append(
-                estimate_stochastic_gradients(
-                    tf.reshape(grads[i* 2 + j], (n_samples, -1)) / tf.reshape(network_outputs, (n_samples, 1)),
-                    energies,
-                    n_samples,
-                    l2
-                )
-            )
+        w_shape = grads[i* 2].shape
+        
+        weights_and_biases = tf.concat(
+            [tf.reshape(grads[i * 2], (n_samples, -1)), tf.reshape(grads[i * 2 + 1], (n_samples, -1))],
+            axis=1
+        )
+        
+        new_weights_and_biases = estimate_stochastic_gradients(
+            weights_and_biases / network_outputs,
+            energies, n_samples, l2
+        )
+        
+        new_weights, new_biases = tf.split(new_weights_and_biases * 2.0, [w_shape[0], 1], axis=0)
+        new_grads.append(new_weights, new_biases)
         
     optimizer.apply_gradients(
-        ((tf.reshape(g * 2.0, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
+        ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
     )
 
     return energies
