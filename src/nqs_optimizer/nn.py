@@ -96,7 +96,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
 
 @tf.function
 def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
-    SS = estimate_stochastic_reconfiguration_matrix(derivs, num_samples)
+    SS = estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2)
     e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
