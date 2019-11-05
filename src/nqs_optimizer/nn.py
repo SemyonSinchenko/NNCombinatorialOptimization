@@ -89,7 +89,7 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     
-    reg_part = tf.diag(tf.ones((e_of_prod.shape[0], ), tf.float32) * l2)
+    reg_part = tf.linalg.diag(tf.ones((e_of_prod.shape[0], ), tf.float32) * l2)
     
     return e_of_prod - prod_of_e + reg_part
 
