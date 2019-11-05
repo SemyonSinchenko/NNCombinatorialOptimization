@@ -137,7 +137,8 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
         )
         
         new_weights, new_biases = tf.split(new_weights_and_biases * 2.0, [w_shape[1] * w_shape[2], w_shape[2]], axis=0)
-        new_grads.append(new_weights, new_biases)
+        new_grads.append(new_weights)
+        new_grads.append(new_biases)
         
     optimizer.apply_gradients(
         ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
