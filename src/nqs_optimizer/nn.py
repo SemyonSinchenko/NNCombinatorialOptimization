@@ -132,7 +132,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
         )
         
         new_weights_and_biases = estimate_stochastic_gradients(
-            weights_and_biases / network_outputs,
+            weights_and_biases,# / network_outputs,
             energies, n_samples, l2
         )
         
