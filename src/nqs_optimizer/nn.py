@@ -49,15 +49,6 @@ def get_acceptance_prob(state, new_state, network):
     )
 
 
-@tf.function(experimental_relax_shapes=True)
-def get_new_state(state, new_state, network):
-    accept_prob = get_acceptance_prob(state, new_state, network)
-    if accept_prob >= tf.random.uniform((1, 1), 0.0, 1.0, tf.float32):
-        return (new_state, tf.constant(1.0))
-    else:
-        return (state, tf.constant(0.0))
-
-
 def generate_samples(problem_dim, network, num_samples, drop_first):
     state = get_random_state_tensor(problem_dim)
     samples = deque()
@@ -66,9 +57,14 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
     for _ in range(num_samples):
         n = tf.constant(randint(0, problem_dim))
         permuted = swap_node_in_state(state, n)
-        state, acc = get_new_state(state, permuted, network)
+        accept_prob = get_acceptance_prob(state, new_state, network)
+        
+        if accept_prob >= tf.random.uniform((1, 1), 0.0, 1.0, tf.float32):
+            accepted += tf.constant(1.0, tf.float32)
+            state = permuted
+            
         samples.append(state)
-        accepted += acc
+        
 
     for _ in range(drop_first):
         samples.popleft()
