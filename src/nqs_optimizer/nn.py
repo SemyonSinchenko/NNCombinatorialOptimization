@@ -57,7 +57,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
     for _ in range(num_samples):
         n = tf.constant(randint(0, problem_dim))
         permuted = swap_node_in_state(state, n)
-        accept_prob = get_acceptance_prob(state, new_state, network)
+        accept_prob = get_acceptance_prob(state, permuted, network)
         
         if accept_prob >= tf.random.uniform((1, 1), 0.0, 1.0, tf.float32):
             accepted += tf.constant(1.0, tf.float32)
