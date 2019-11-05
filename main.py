@@ -13,11 +13,11 @@ GRAPH_100_VERTICES = os.path.join("resources", "g05_100.0")
 GRAPH_1000_VERTICES = os.path.join("resources", "er1000")
 
 if __name__ == "__main__":
-    edge_list = read_unweighted_edge_list(GRAPH_1000_VERTICES)
+    edge_list = read_unweighted_edge_list(GRAPH_100_VERTICES)
     problem_dim = get_num_nodes(edge_list)
     optimizer = tf.keras.optimizers.SGD(5.0e-3, 0.95, nesterov=True)
 
     nn = NNMaxCutOptimizer(
-        edge_list, problem_dim, [20, 100, 100, 50, 5], "logdir", optimizer, epochs=1000, max_samples=25000, drop_first=5000, reg_lambda=200
+        edge_list, problem_dim, [20, 100, 100, 50, 5], "logdir", optimizer, epochs=300, max_samples=5000, drop_first=100, reg_lambda=100
     )
     nn.fit()
