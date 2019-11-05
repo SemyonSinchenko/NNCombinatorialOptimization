@@ -18,6 +18,6 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.SGD(5.0e-3, 0.95, nesterov=True)
 
     nn = NNMaxCutOptimizer(
-        edge_list, problem_dim, [15, 50, 50, 5], "logdir", optimizer, epochs=1000, max_samples=15000, drop_first=5000, reg_lambda=200
+        edge_list, problem_dim, [20, 100, 100, 50, 5], "logdir", optimizer, epochs=1000, max_samples=25000, drop_first=5000, reg_lambda=200
     )
     nn.fit()
