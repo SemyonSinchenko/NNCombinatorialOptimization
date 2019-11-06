@@ -7,14 +7,6 @@ import tensorflow as tf
 
 
 @tf.function
-def __divide_on_by(x, threshold):
-    if x >= threshold:
-        return tf.constant(1.0) / x
-    else:
-        return tf.constant(0.0)
-
-
-@tf.function
 def moore_penrose_invert(tensor, threshold=tf.constant(1.0e-5)):
     """Moore-Penrose pseudo-ivertion of given tensor.
     
@@ -30,7 +22,10 @@ def moore_penrose_invert(tensor, threshold=tf.constant(1.0e-5)):
 
     s, u, v = tf.linalg.svd(tensor)
     
-    threshold = tf.math.reduce_max(s) * threshold
-    s_inv = tf.linalg.diag(tf.vectorized_map(partial(__divide_on_by, threshold=threshold), s))
+    threshold_ = tf.math.reduce_max(s) * threshold
+    s_no_zeros = tf.boolean_mask(s, s > threshold_)
+    s_inv = tf.linalg.diag(
+        tf.concat(tf.math.reciprocal(s_no_zeros), tf.zeros(s.ahpe[0] - s_no_zeros.shape[0]), axis=0)
+    )
 
     return tf.matmul(v, tf.matmul(s_inv, tf.transpose(u)))
