@@ -98,7 +98,7 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     
     forces = e_of_prod - prod_of_e
     #stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
-    stochastic_gradients = tf.matmul(moore_penrose_invert(SS), tf.linalg.adjoint(forces))
+    stochastic_gradients = tf.linalg.lstsq(SS, tf.linalg.adjoint(forces), fast=False)
 
     return stochastic_gradients
 
