@@ -25,7 +25,7 @@ def moore_penrose_invert(tensor, threshold=tf.constant(1.0e-5)):
     threshold_ = tf.math.reduce_max(s) * threshold
     s_no_zeros = tf.boolean_mask(s, s > threshold_)
     s_inv = tf.linalg.diag(
-        tf.concat(tf.math.reciprocal(s_no_zeros), tf.zeros(tf.size(s) - tf.size(s_no_zeros), tf.float32), axis=0)
+        tf.concat([tf.math.reciprocal(s_no_zeros), tf.zeros(tf.size(s) - tf.size(s_no_zeros), tf.float32)], axis=0)
     )
 
     return tf.matmul(v, tf.matmul(s_inv, tf.transpose(u)))
