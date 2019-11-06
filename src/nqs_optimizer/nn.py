@@ -127,8 +127,8 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     
     for i in range(num_layers * 2):
         # *2 because we have weights and biases for each layer
-        layers_shape.append(grads[i].shape[1] * grads[i].shape[2])
         all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
+        layers_shape.append(all_in_once_grads[-1].shape[1])
         
     new_grads = estimate_stochastic_gradients(
         tf.concat(all_in_once_grads, axis=1) / network_outputs,
