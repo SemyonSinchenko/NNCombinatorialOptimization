@@ -81,7 +81,7 @@ def estimate_energy_of_state(state, extended_edge_list):
 
 @tf.function
 def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
-    e_of_prod = tf.einsum("ki,jk", derivs, derivs) / num_samples
+    e_of_prod = tf.einsum("ki,kj", derivs, derivs) / num_samples
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     
