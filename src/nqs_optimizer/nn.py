@@ -122,23 +122,20 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     )
 
     new_grads = []
-    for i in range(num_layers):
-        # i - layer
-        w_shape = grads[i* 2].shape
+    all_in_once_grads = []
+    layers_shape = []
+    
+    for i in range(num_layers * 2):
+        # *2 because we have weights and biases for each layer
+        layers_shape.append(grads[i].shape[1] * grads[i].shape[2])
+        all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
         
-        weights_and_biases = tf.concat(
-            [tf.reshape(grads[i * 2], (n_samples, -1)), tf.reshape(grads[i * 2 + 1], (n_samples, -1))],
-            axis=1
-        )
-        
-        new_weights_and_biases = estimate_stochastic_gradients(
-            weights_and_biases,# / network_outputs,
-            energies, n_samples, l2
-        )
-        
-        new_weights, new_biases = tf.split(new_weights_and_biases * 2.0, [w_shape[1] * w_shape[2], w_shape[2]], axis=0)
-        new_grads.append(new_weights)
-        new_grads.append(new_biases)
+    new_grads = estimate_stochastic_gradients(
+        tf.concat(all_in_once_grads, axis=1) / network_outputs,
+        energies, n_samples, l2
+    )
+    
+    new_grads = tf.split(new_grads * 2.0, layers_shape, axis=0)
         
     optimizer.apply_gradients(
         ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
