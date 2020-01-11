@@ -97,8 +97,7 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
-    #stochastic_gradients = tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
-    stochastic_gradients = tf.linalg.lstsq(SS, tf.linalg.adjoint(forces), fast=False)
+    stochastic_gradients = tf.linalg.einsum(tf.linalg.pinv(SS), forces, "ij,kj")
 
     return stochastic_gradients
 
