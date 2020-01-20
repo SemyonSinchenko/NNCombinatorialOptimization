@@ -167,6 +167,6 @@ def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optim
     num_real_samples = num_samples - drop_first
 
     #energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
-    energies = simple_derivs(samples, network, num_samples, optimizer)
+    energies = simple_derivs(samples, network, num_real_samples, optimizer)
 
     return energies, accepted / tf.constant(num_samples, tf.float32)
