@@ -4,13 +4,11 @@
 
 from collections import deque
 from functools import partial
-from random import randint
+from random import randint, random
 import tensorflow as tf
 
-from .linalg_opp import moore_penrose_invert
 
-
-@tf.function(experimental_relax_shapes=True)
+@tf.function
 def swap_node_in_state(state, n):
     """Given a state and N swap N-th node in state. Do not modify input state.
     
@@ -37,16 +35,14 @@ def get_random_state_tensor(num_nodes):
     return tf.cast(tf.random.uniform((num_nodes,), 0, 2, tf.int32) * 2 - 1, dtype=tf.float32)
 
 
-@tf.function(experimental_relax_shapes=True)
+@tf.function
 def get_state_probability(state, network):
     return network(tf.expand_dims(state, 0))
 
 
-@tf.function(experimental_relax_shapes=True)
+@tf.function
 def get_acceptance_prob(state, new_state, network):
-    return tf.stop_gradient(
-        tf.square(get_state_probability(new_state, network)) / tf.square((get_state_probability(state, network)))
-    )
+    return get_state_probability(new_state, network) / (get_state_probability(state, network) + 1e-24)
 
 
 def generate_samples(problem_dim, network, num_samples, drop_first):
@@ -59,7 +55,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         permuted = swap_node_in_state(state, n)
         accept_prob = get_acceptance_prob(state, permuted, network)
         
-        if accept_prob >= tf.random.uniform((1, 1), 0.0, 1.0, tf.float32):
+        if accept_prob >= tf.constant(random(), tf.float32):
             accepted += tf.constant(1.0, tf.float32)
             state = permuted
             
@@ -72,7 +68,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
     return (tf.stack(samples), accepted)
 
 
-@tf.function(experimental_relax_shapes=True)
+@tf.function
 def estimate_energy_of_state(state, extended_edge_list):
     return tf.reduce_sum(
         tf.math.abs(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1)) - 2.0
