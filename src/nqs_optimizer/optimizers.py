@@ -23,7 +23,7 @@ class NNMaxCutOptimizer(object):
             drop_first=100,
             epochs=500,
             reg_lambda=100.0,
-            lambda_decay=0.95,
+            lambda_decay=0.9,
             min_lambda=0.01
     ):
         """[summary]
@@ -52,7 +52,7 @@ class NNMaxCutOptimizer(object):
             tf.keras.layers.Dense(num_hidden, activation=tf.nn.relu)
             for num_hidden in layers[1:]
         ]
-        nn_layers.append(tf.keras.layers.Dense(1, activation=tf.nn.sigmoid))
+        nn_layers.append(tf.keras.layers.Dense(1))
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
 
         print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
