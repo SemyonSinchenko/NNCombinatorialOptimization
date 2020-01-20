@@ -97,7 +97,8 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
-    stochastic_gradients = tf.linalg.einsum(tf.linalg.pinv(SS), forces, "ij,kj")
+    # stochastic_gradients = tf.linalg.einsum(tf.linalg.pinv(SS), forces, "ij,kj")
+    stochastic_gradients = tf.linalg.cholesky_solve(SS, forces)
 
     return stochastic_gradients
 
@@ -112,13 +113,16 @@ def get_out_and_grad(state, network):
 
 @tf.function
 def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
+    unique_samples = tf.unique(samples)
+    num_unique = unique_samples.shape[0]
+    
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), unique_samples)
+    network_outputs = tf.reshape(tf.stack(network_outputs), (num_unique, 1))
     energies = tf.map_fn(
         partial(estimate_energy_of_state, extended_edge_list=edge_ext),
-        samples,
+        unique_samples,
         tf.float32,
-        parallel_iterations=n_samples
+        parallel_iterations=num_unique
     )
 
     new_grads = []
@@ -127,12 +131,12 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     
     for i in range(num_layers * 2):
         # *2 because we have weights and biases for each layer
-        all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
+        all_in_once_grads.append(tf.reshape(grads[i], (num_unique, -1)))
         layers_shape.append(all_in_once_grads[-1].shape[1])
         
     new_grads = estimate_stochastic_gradients(
         tf.concat(all_in_once_grads, axis=1) / network_outputs,
-        energies, n_samples, l2
+        energies, num_unique, l2
     )
     
     new_grads = tf.split(new_grads * 2.0, layers_shape, axis=0)
