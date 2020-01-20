@@ -165,7 +165,7 @@ def simple_derivs(samples, network, edge_ext, n_samples, optimizer, num_layers):
         all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
         layers_shape.append(all_in_once_grads[-1].shape[1])
         
-    final_grads = -2.0 * (tf.concat(all_in_once_grads, axis=1) * avg_e - tf.expand_dims(energies, 1))
+    final_grads = 2.0 * tf.concat(all_in_once_grads, axis=1 * (tf.expand_dims(energies, 1) - avg_e)
     new_grads = tf.split(tf.reduce_mean(final_grads, axis=0), layers_shape, axis=0)
     
     optimizer.apply_gradients(
