@@ -106,7 +106,7 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
 
 @tf.function
 def get_out_and_grad(state, network):
-    o = get_state_probability(state, network)
+    o = network(tf.expand_dims(state, 0))
     g = tf.gradients(o, network.trainable_variables)
 
     return o, g
