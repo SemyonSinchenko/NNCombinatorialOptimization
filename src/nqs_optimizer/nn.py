@@ -99,7 +99,7 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     
     forces = e_of_prod - prod_of_e
 
-    return tf.linalg.cholesky_solve(SS, forces)
+    return tf.linalg.cholesky_solve(SS, tf.adjoint(forces))
 
 
 @tf.function
