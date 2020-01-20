@@ -113,7 +113,7 @@ def get_out_and_grad(state, network):
 
 @tf.function
 def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):    
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), n_samples)
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
     network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
     energies = tf.map_fn(
         partial(estimate_energy_of_state, extended_edge_list=edge_ext),
@@ -146,7 +146,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
 
 @tf.function
 def simple_derivs(samples, network, n_samples, optimizer):
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), n_samples)
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
     network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
     energies = tf.map_fn(
         partial(estimate_energy_of_state, extended_edge_list=edge_ext),
