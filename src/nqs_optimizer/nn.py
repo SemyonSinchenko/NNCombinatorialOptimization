@@ -55,6 +55,8 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
     state = get_random_state_tensor(problem_dim)
     samples = deque()
     accepted = tf.constant(0.0)
+    
+    f = open("probs.txt", "w")
 
     for _ in range(num_samples):
         n = tf.constant(randint(0, problem_dim))
@@ -62,7 +64,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         accept_prob = get_acceptance_prob(state, permuted, network)
         
         if accept_prob >= tf.constant(random(), tf.float32):
-            print(accept_prob)
+            f.write(accept_prob.numpy + "\n")
             accepted += tf.constant(1.0, tf.float32)
             state = permuted
             
