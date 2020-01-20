@@ -41,12 +41,12 @@ def get_random_state_tensor(num_nodes):
     return tf.convert_to_tensor(res, tf.float32)
 
 
-def get_log_probability(state, network):
-    return tf.math.log(network(tf.expand_dims(state, 0)))
+def get_probability(state, network):
+    return network(tf.expand_dims(state, 0))
 
 
 def get_acceptance_prob(state, new_state, network):
-    return tf.math.exp(get_log_probability(new_state, network) - get_log_probability(state, network))
+    return get_probability(new_state, network) / (get_probability(state, network) + 1e-16)
 
 
 def generate_samples(problem_dim, network, num_samples, drop_first):
@@ -58,7 +58,6 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         n = tf.constant(randint(0, problem_dim))
         permuted = swap_node_in_state(state, n)
         accept_prob = get_acceptance_prob(state, permuted, network)
-        print(accept_prob)
         
         if accept_prob >= random():
             accepted += tf.constant(1.0, tf.float32)
