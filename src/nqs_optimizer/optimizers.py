@@ -49,7 +49,7 @@ class NNMaxCutOptimizer(object):
         self.__num_nodes = problem_dim
         self.__edge_ext = edge_list2extended_edge_list(edge_list, problem_dim)
         nn_layers = [
-            tf.keras.layers.Dense(num_hidden, activation=tf.nn.relu)
+            tf.keras.layers.Dense(num_hidden, activation=tf.nn.sigmoid)
             for num_hidden in layers[1:]
         ]
         nn_layers.append(tf.keras.layers.Dense(1, activation=tf.nn.relu))
