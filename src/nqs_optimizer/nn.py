@@ -145,7 +145,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     return energies
 
 @tf.function
-def simple_derivs(samples, network, n_samples, optimizer):
+def simple_derivs(samples, network, edge_ext, n_samples, optimizer):
     network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
     network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
     energies = tf.map_fn(
@@ -167,6 +167,6 @@ def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optim
     num_real_samples = num_samples - drop_first
 
     #energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
-    energies = simple_derivs(samples, network, num_real_samples, optimizer)
+    energies = simple_derivs(samples, network, edge_ext, num_real_samples, optimizer)
 
     return energies, accepted / tf.constant(num_samples, tf.float32)
