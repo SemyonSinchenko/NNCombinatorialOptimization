@@ -62,6 +62,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         accept_prob = get_acceptance_prob(state, permuted, network)
         
         if accept_prob >= tf.constant(random(), tf.float32):
+            print(accept_prob)
             accepted += tf.constant(1.0, tf.float32)
             state = permuted
             
@@ -137,7 +138,7 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
         energies, n_samples, l2
     )
     
-    new_grads = tf.split(new_grads * 2.0, layers_shape, axis=0)
+    new_grads = tf.split(new_grads, layers_shape, axis=0)
         
     optimizer.apply_gradients(
         ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
