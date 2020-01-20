@@ -41,12 +41,10 @@ def get_random_state_tensor(num_nodes):
     return tf.convert_to_tensor(res, tf.float32)
 
 
-@tf.function
 def get_log_probability(state, network):
     return tf.math.log(network(tf.expand_dims(state, 0)))
 
 
-@tf.function
 def get_acceptance_prob(state, new_state, network):
     return tf.math.exp(get_log_probability(new_state, network) - get_log_probability(state, network))
 
@@ -63,8 +61,8 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         permuted = swap_node_in_state(state, n)
         accept_prob = get_acceptance_prob(state, permuted, network)
         
-        if accept_prob >= tf.constant(random(), tf.float32):
-            f.write(accept_prob)
+        if accept_prob >= random():
+            f.write(accept_prob.numpy())
             f.write("\n")
             accepted += tf.constant(1.0, tf.float32)
             state = permuted
