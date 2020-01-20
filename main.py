@@ -20,6 +20,6 @@ if __name__ == "__main__":
 
     nn = NNMaxCutOptimizer(
         edge_list, problem_dim, [20, 50, 5],
-        "logdir", optimizer, epochs=300, max_samples=1000, drop_first=100, reg_lambda=100
+        "logdir", optimizer, epochs=300, max_samples=1000, drop_first=100, reg_lambda=50
     )
     nn.fit()
