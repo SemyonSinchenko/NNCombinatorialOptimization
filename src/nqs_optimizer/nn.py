@@ -85,9 +85,10 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     
-    reg_part = tf.linalg.diag(tf.ones((e_of_prod.shape[0], ), tf.float32) * l2)
+    SS = e_of_prod - prod_of_e
+    reg_part = tf.linalg.diag(tf.ones((SS.shape[0], ), tf.float32) * l2)
     
-    return e_of_prod - prod_of_e + reg_part
+    return SS + reg_part
 
 
 @tf.function
@@ -97,10 +98,8 @@ def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
     
     forces = e_of_prod - prod_of_e
-    # stochastic_gradients = tf.linalg.einsum(tf.linalg.pinv(SS), forces, "ij,kj")
-    stochastic_gradients = tf.linalg.cholesky_solve(SS, forces)
 
-    return stochastic_gradients
+    return tf.linalg.cholesky_solve(SS, forces)
 
 
 @tf.function
@@ -179,7 +178,7 @@ def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optim
     samples, accepted = generate_samples(problem_dim, network, num_samples, drop_first)
     num_real_samples = num_samples - drop_first
 
-    #energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
-    energies = simple_derivs(samples, network, edge_ext, num_real_samples, optimizer, num_layers)
+    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
+    #energies = simple_derivs(samples, network, edge_ext, num_real_samples, optimizer, num_layers)
 
     return energies, accepted / tf.constant(num_samples, tf.float32)
