@@ -112,17 +112,14 @@ def get_out_and_grad(state, network):
 
 
 @tf.function
-def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):
-    unique_samples = tf.unique(samples)
-    num_unique = unique_samples.shape[0]
-    
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), unique_samples)
-    network_outputs = tf.reshape(tf.stack(network_outputs), (num_unique, 1))
+def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):    
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), n_samples)
+    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
     energies = tf.map_fn(
         partial(estimate_energy_of_state, extended_edge_list=edge_ext),
-        unique_samples,
+        samples,
         tf.float32,
-        parallel_iterations=num_unique
+        parallel_iterations=n_samples
     )
 
     new_grads = []
@@ -131,12 +128,12 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
     
     for i in range(num_layers * 2):
         # *2 because we have weights and biases for each layer
-        all_in_once_grads.append(tf.reshape(grads[i], (num_unique, -1)))
+        all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
         layers_shape.append(all_in_once_grads[-1].shape[1])
         
     new_grads = estimate_stochastic_gradients(
         tf.concat(all_in_once_grads, axis=1) / network_outputs,
-        energies, num_unique, l2
+        energies, n_samples, l2
     )
     
     new_grads = tf.split(new_grads * 2.0, layers_shape, axis=0)
@@ -147,11 +144,29 @@ def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_sam
 
     return energies
 
+@tf.function
+def simple_derivs(samples, network, n_samples, optimizer):
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), n_samples)
+    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
+    energies = tf.map_fn(
+        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
+        samples,
+        tf.float32,
+        parallel_iterations=n_samples
+    )
+    
+    avg_e = tf.math.reduce_mean(energies)
+    final_grads = tf.math.reduce_mean(2 * (-grads * avg_e - energies), axis=0)
+    optimizer.apply_gradients(final_grads, network.trainable_variables)
+    
+    return energies
+
 
 def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers, l2):
     samples, accepted = generate_samples(problem_dim, network, num_samples, drop_first)
     num_real_samples = num_samples - drop_first
 
-    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
+    #energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
+    energies = simple_derivs(samples, network, n_samples, optimizer)
 
     return energies, accepted / tf.constant(num_samples, tf.float32)
