@@ -64,7 +64,7 @@ def generate_samples(problem_dim, network, num_samples, drop_first):
         accept_prob = get_acceptance_prob(state, permuted, network)
         
         if accept_prob >= tf.constant(random(), tf.float32):
-            f.write(accept_prob.numpy + "\n")
+            f.write(accept_prob.numpy() + "\n")
             accepted += tf.constant(1.0, tf.float32)
             state = permuted
             
