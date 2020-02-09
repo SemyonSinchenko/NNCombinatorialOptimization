@@ -134,3 +134,6 @@ dmypy.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+.metals/metals.h2.db
+.vscode/settings.json
+logdir/events.out.tfevents.1581265878.DESKTOP-VJFEVQ5.18456.118.v2

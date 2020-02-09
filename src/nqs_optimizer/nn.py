@@ -109,6 +109,19 @@ def get_out_and_grad(state, network):
 
     return o, g
 
+@tf.function
+def get_network_outs_and_energies(samples, network, edge_ext, n_samples):
+    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
+    energies = tf.map_fn(
+        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
+        samples,
+        tf.float32,
+        back_prop=False,
+        parallel_iterations=n_samples
+    )
+
+    return (tf.expand_dims(tf.stack(network_outputs), 1), grads, energies)
+
 
 @tf.function
 def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):    

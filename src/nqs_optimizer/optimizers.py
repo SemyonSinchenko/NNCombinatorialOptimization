@@ -4,11 +4,16 @@
 
 from collections import deque
 from random import randint, random
+from functools import partial
 
 import numpy as np
-import tensorflow as tf  # tf.__version__ >= 2.0
+import tensorflow as tf
+from tqdm import tqdm
 from .opp import edge_list2extended_edge_list
-from .nn import learning_step, generate_samples
+from .nn import get_acceptance_prob, swap_node_in_state
+from .nn import get_out_and_grad, estimate_energy_of_state
+from .nn import estimate_stochastic_gradients
+from .nn import get_network_outs_and_energies
 
 
 class NNMaxCutOptimizer(object):
@@ -24,7 +29,7 @@ class NNMaxCutOptimizer(object):
             epochs=500,
             reg_lambda=100.0,
             lambda_decay=0.9,
-            min_lambda=0.1
+            min_lambda=0.01
     ):
         """[summary]
         
@@ -74,25 +79,113 @@ class NNMaxCutOptimizer(object):
     def fit(self):
         """Fit the network."""
 
-        print("Start learning...")
-        for epoch in range(self.__epochs):
-            with self.__writer.as_default():
-                e, acc_rat = learning_step(
-                    self.__num_nodes, self.network,
-                    self.__max_samples, self.__drop_first,
-                    self.__edge_ext, self.__optimizer, 
-                    self.__num_layers, self.__l2
-                )
-                self.__write_summary(e, acc_rat, epoch)
-                self.__update_reg_lambda()
+        self.__iteration = 0
 
-                print("Finished epoch %d/%d" % (epoch, self.__epochs))
+        while self.__iteration <= self.__epochs:
+            self.__mcmc_step()
+            self.__update_step()
+            self.__update_reg_lambda()
+            self.__iteration += 1
 
-    def __write_summary(self, e, acc_rate, epoch):
-        tf.summary.scalar("min_energy", tf.math.reduce_min(e), step=epoch)
-        tf.summary.scalar("avg_energy", tf.math.reduce_mean(e), step=epoch)
-        tf.summary.scalar("variance_energy", tf.math.reduce_variance(e), step=epoch)
-        tf.summary.scalar("acceptance_ration", acc_rate, step=epoch)
+    def __generate_random_state(self):
+        res = []
+        for _ in range(self.__num_nodes):
+            if random() >= 0.5:
+                res.append(1.0)
+            else:
+                res.append(-1.0)
+
+        
+        self.__state = tf.convert_to_tensor(res, tf.float32)
+
+    def __mcmc_step(self):
+        self.__generate_random_state()
+        samples = deque()
+        energies = deque()
+        outs = deque()
+        grads = deque()
+        self.__acceptance_ratio = tf.constant(0.0)
+
+        out, grad = get_out_and_grad(self.__state, self.network)
+        e = estimate_energy_of_state(self.__state, self.__edge_ext)
+
+        for _ in tqdm(range(self.__max_samples), desc="MCMC. Epoch {:d}".format(self.__iteration)):
+            n = tf.constant(randint(0, self.__num_nodes))
+            permuted = swap_node_in_state(self.__state, n)
+            out_, grad_ = get_out_and_grad(permuted, self.network)
+
+            accept_prob = tf.math.exp(tf.math.log(out_) - tf.math.log(out))
+            
+            if accept_prob >= random():
+                self.__acceptance_ratio += tf.constant(1.0, tf.float32)
+                self.__state = permuted
+                e = estimate_energy_of_state(self.__state, self.__edge_ext)
+                out, grad = out_, grad_
+                
+            samples.append(self.__state)
+            energies.append(e)
+            outs.append(out)
+            grads.append(grad)
+
+        for _ in range(self.__drop_first):
+            samples.popleft()
+            energies.popleft()
+            outs.popleft()
+            grads.popleft()
+
+        self.__acceptance_ratio /= tf.constant(float(self.__max_samples))
+        self.__mcmc_samples = tf.stack(samples)
+        self.__energies = tf.stack(energies)
+        self.__network_outputs = tf.squeeze(tf.stack(outs), [2])
+        self.__grads = list(grads)
+
+    def __update_step(self):
+        num_samples = self.__max_samples - self.__drop_first
+
+        tf.summary.scalar("min_energy", tf.math.reduce_min(self.__energies), step=self.__iteration)
+        tf.summary.scalar("avg_energy", tf.math.reduce_mean(self.__energies), step=self.__iteration)
+        tf.summary.scalar("variance_energy", tf.math.reduce_variance(self.__energies), step=self.__iteration)
+        tf.summary.scalar("acceptance_ration", self.__acceptance_ratio, step=self.__iteration)
+
+        tf.summary.histogram(
+            "network_outputs",
+            self.__network_outputs,
+            step=self.__iteration,
+            buckets=50
+        )
+
+        new_grads = []
+        all_in_once_grads = []
+        layers_shape = []
+
+        for i in tqdm(range(self.__num_layers * 2), desc="Recompute grads. Epoch {:d}".format(self.__iteration)):
+            g = []
+            for j in range(num_samples):
+                g.append(self.__grads[j][i])
+            all_in_once_grads.append(tf.reshape(tf.stack(g), (num_samples, -1)))
+            layers_shape.append(all_in_once_grads[-1].shape[1])
+
+        derivs = tf.concat(all_in_once_grads, axis=1)
+        derivs /= self.__network_outputs
+            
+        new_grads = estimate_stochastic_gradients(
+            derivs,
+            self.__energies, num_samples, self.__l2
+        )
+        
+        self.__grads = tf.split(new_grads, layers_shape, axis=0)
+            
+        self.__optimizer.apply_gradients(
+            ((tf.reshape(g, weights.shape)), weights) 
+            for g, weights in zip(self.__grads, self.network.trainable_variables)
+        )
+
+        tf.summary.histogram(
+            "grads",
+            self.__grads,
+            step=self.__iteration,
+            buckets=50
+        )
 
     def __update_reg_lambda(self):
         lambda_ = self.__l2 * self.__l2_decay
@@ -101,22 +194,3 @@ class NNMaxCutOptimizer(object):
         else:
             self.__l2 = lambda_
 
-    def predict_state_probability(self, state):
-        return self.network.predict(np.array(state).reshape((-1, 1)))
-
-    def generate_samples(self, num_samples=None, drop_first=None):
-        """[summary]
-        
-        Keyword Arguments:
-            num_samples {[type]} -- [description] (default: {None})
-            drop_first {[type]} -- [description] (default: {None})
-        
-        Returns:
-            [type] -- [description]
-        """
-
-        if num_samples is None:
-            num_samples = self.__max_samples
-        if drop_first is None:
-            drop_first = self.__drop_first
-        return generate_samples(self.__num_nodes, self.network, num_samples, drop_first)
