@@ -11,12 +11,17 @@ def edge_list2extended_edge_list(edge_list, num_nodes):
     The extended edge list is a sparse matrix of shape num_nodes x num_edges.
     For edge number i pointed from j to k elements ij and ik of matrix equal 1.
     
-    Arguments:
-        edge_list {list[list[int]]} -- edge list in the form list of lists
-        num_nodes {int} -- number of nodes in the graph
+    Parameters
+    ----------
+    edge_list : List[List[int]]
+        List of edges of Graph
+    num_nodes : int
+        Number of nodes
     
-    Returns:
-        tf.SparseTensor -- sparse adjacency matrix with shape num_nodes x num_edges
+    Returns
+    -------
+    tf.SparseTensor
+        Sparse edges-OHE matrix with shape (num_nodes x num_edges)
     """
     dense_shape = (len(edge_list), num_nodes)
     
@@ -31,13 +36,17 @@ def edge_list2extended_edge_list(edge_list, num_nodes):
 
 
 def get_num_nodes(edge_list):
-    """Get number of nodes for Graph defined by given edge_list
+    """Get number of nodes for Graph defined by given edge_list.
     
-    Arguments:
-        edge_list {list[list[int]]} -- edge list in the form list of lists
+    Parameters
+    ----------
+    edge_list : List[List[int]]
+        List of edges
     
-    Returns:
-        int -- number of nides
+    Returns
+    -------
+    int
+        number of nodes
     """
     n = 0
     for e in edge_list:
@@ -52,15 +61,19 @@ def get_num_nodes(edge_list):
 def read_unweighted_edge_list(path, sep=" ", not_zero_indexed=True):
     """Read unweighted edge_list from file.
     
-    Arguments:
-        path {str} -- path to file
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    sep : str, optional
+        delimiter, by default " "
+    not_zero_indexed : bool, optional
+        Is Graph nodes indexed from zero, by default True
     
-    Keyword Arguments:
-        sep {str} -- delimiter (default: {" "})
-        not_zero_indexed {bool} -- is edge list zer-indexed (default: {True})
-    
-    Returns:
-        list[list[int]] -- edge list in the form list of lists
+    Returns
+    -------
+    List[List[int]]
+        List of edges.
     """
     edge_list = deque()
     with open(path, "r") as f:

@@ -1,53 +1,64 @@
 """
 @author: Semyon Sinchenko
+
+Optimizer class.
 """
 
 from collections import deque
-from random import randint, random
 from functools import partial
+from random import randint, random
+from typing import List
 
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+
+from .nn import (estimate_energy_of_state, estimate_stochastic_gradients,
+                 get_acceptance_prob, get_network_outs_and_energies,
+                 get_out_and_grad, swap_node_in_state)
 from .opp import edge_list2extended_edge_list
-from .nn import get_acceptance_prob, swap_node_in_state
-from .nn import get_out_and_grad, estimate_energy_of_state
-from .nn import estimate_stochastic_gradients
-from .nn import get_network_outs_and_energies
 
 
 class NNMaxCutOptimizer(object):
     def __init__(
-            self,
-            edge_list,
-            problem_dim,
-            layers,
-            logdir,
-            optimizer,
-            max_samples=5000,
-            drop_first=100,
-            epochs=500,
-            reg_lambda=100.0,
-            lambda_decay=0.9,
-            min_lambda=0.01
-    ):
-        """[summary]
+        self,
+        edge_list: List[List[int]],
+        problem_dim: int,
+        layers: List[int],
+        logdir: str,
+        optimizer: tf.keras.optimizers.Optimizer,
+        max_samples: int = 5000,
+        drop_first: int = 100,
+        epochs: int = 500,
+        reg_lambda: float = 100.0,
+        lambda_decay: float = 0.9,
+        min_lambda: float = 0.01):
+        """Constructor.
         
-        Arguments:
-            object {[type]} -- [description]
-            edge_list {[type]} -- [description]
-            problem_dim {[type]} -- [description]
-            layers {[type]} -- [description]
-            logdir {[type]} -- [description]
-            optimizer {[type]} -- [description]
-        
-        Keyword Arguments:
-            max_samples {int} -- [description] (default: {5000})
-            drop_first {int} -- [description] (default: {100})
-            epochs {int} -- [description] (default: {500})
-            reg_lambda {float} -- [description] (default: {100.0})
-            lambda_decay {float} -- [description] (default: {0.9})
-            min_lambda {float} -- [description] (default: {10.0})
+        Parameters
+        ----------
+        edge_list : List[List[int]]
+            List of edges
+        problem_dim : int
+            Number of nodes
+        layers : List[int]
+            Layers of NN in form of List of number of hidden units by layers
+        logdir : str
+            Logging dir (for tensorboard)
+        optimizer : tf.keras.optimizers.Optimizer
+            Optimizer
+        max_samples : int, optional
+            Number of MCMC-samples, by default 5000
+        drop_first : int, optional
+            Number of MCMC-samples that will be drop, by default 100
+        epochs : int, optional
+            Number of epochs, by default 500
+        reg_lambda : float, optional
+            Initial Lambda regularization for SR, by default 100.0
+        lambda_decay : float, optional
+            Decay rate of lambda, by default 0.9
+        min_lambda : float, optional
+            Minimal value of Lambda, by default 0.01
         """
 
         print("TF version: " + tf.__version__)
@@ -77,17 +88,23 @@ class NNMaxCutOptimizer(object):
         self.__writer = tf.summary.create_file_writer(logdir)
 
     def fit(self):
-        """Fit the network."""
-
+        """Main fit method.
+        """
         self.__iteration = 0
 
         while self.__iteration <= self.__epochs:
+            # Generate samples
             self.__mcmc_step()
+            # Update weights
             self.__update_step()
+            # Update Lambda
             self.__update_reg_lambda()
+            # Increment iterations counter
             self.__iteration += 1
 
     def __generate_random_state(self):
+        """Generate random state.
+        """
         res = []
         for _ in range(self.__num_nodes):
             if random() >= 0.5:
@@ -95,10 +112,11 @@ class NNMaxCutOptimizer(object):
             else:
                 res.append(-1.0)
 
-        
         self.__state = tf.convert_to_tensor(res, tf.float32)
 
     def __mcmc_step(self):
+        """Generate MCMC-samples
+        """
         self.__generate_random_state()
         samples = deque()
         energies = deque()
@@ -114,8 +132,10 @@ class NNMaxCutOptimizer(object):
             permuted = swap_node_in_state(self.__state, n)
             out_, grad_ = get_out_and_grad(permuted, self.network)
 
+            # Compute acceptance probability: NN_out_new / NN_out_old
             accept_prob = tf.math.exp(tf.math.log(out_) - tf.math.log(out))
             
+            # Accept new state with probability Psi' / Psi
             if accept_prob >= random():
                 self.__acceptance_ratio += tf.constant(1.0, tf.float32)
                 self.__state = permuted
@@ -140,8 +160,12 @@ class NNMaxCutOptimizer(object):
         self.__grads = list(grads)
 
     def __update_step(self):
+        """Compute derivatives and update weights of network.
+        """
+        # Compute number of "real" samples
         num_samples = self.__max_samples - self.__drop_first
 
+        # Write debug information
         with self.__writer.as_default():
             tf.summary.scalar("min_energy", tf.math.reduce_min(self.__energies), step=self.__iteration)
             tf.summary.scalar("avg_energy", tf.math.reduce_mean(self.__energies), step=self.__iteration)
@@ -159,6 +183,8 @@ class NNMaxCutOptimizer(object):
         all_in_once_grads = []
         layers_shape = []
 
+        # Combine gradients by layers
+        # x2 because for each layer we have both weights and bias
         for i in tqdm(range(self.__num_layers * 2), desc="Recompute grads. Epoch {:d}".format(self.__iteration)):
             g = []
             for j in range(num_samples):
@@ -167,8 +193,11 @@ class NNMaxCutOptimizer(object):
             layers_shape.append(all_in_once_grads[-1].shape[1])
 
         derivs = tf.concat(all_in_once_grads, axis=1)
+
+        # Divide by Psi like in the Carleo-paper (Science)
         derivs /= self.__network_outputs
             
+        # Compute Natural gradient
         new_grads = estimate_stochastic_gradients(
             derivs,
             self.__energies, num_samples, self.__l2
@@ -176,15 +205,17 @@ class NNMaxCutOptimizer(object):
         
         self.__grads = tf.split(new_grads, layers_shape, axis=0)
             
+        # Update weights
         self.__optimizer.apply_gradients(
             ((tf.reshape(g, weights.shape)), weights) 
             for g, weights in zip(self.__grads, self.network.trainable_variables)
         )
 
     def __update_reg_lambda(self):
+        """Apply L2-decay
+        """
         lambda_ = self.__l2 * self.__l2_decay
         if lambda_ < self.__min_lambda:
             self.__l2 = self.__min_lambda
         else:
             self.__l2 = lambda_
-

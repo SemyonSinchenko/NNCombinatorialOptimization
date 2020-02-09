@@ -1,79 +1,39 @@
 """
 @author Semyon Sinchenko
+
+JIT-compiled functions.
 """
 
 from collections import deque
 from functools import partial
-from random import randint, random
+
 import tensorflow as tf
 
 
 @tf.function
-def swap_node_in_state(state, n):
-    """Given a state and N swap N-th node in state. Do not modify input state.
-    
-    Arguments:
-        state {tf.Tensor} -- state
-        n {int} -- node number
-    
-    Returns:
-        tf.Tensor -- new state
-    """
-    return tf.multiply(state, tf.where(tf.range(0, state.shape[0], 1) == n, -1.0, 1.0))
-
-
-def get_random_state_tensor(num_nodes):
-    """Generate random state.
-    
-    Arguments:
-        num_nodes {int} -- number of nodes
-    
-    Returns:
-        tf.Tensor -- state
-    """
-    res = []
-    for _ in range(num_nodes):
-        if random() >= 0.5:
-            res.append(1.0)
-        else:
-            res.append(-1.0)
-
-    return tf.convert_to_tensor(res, tf.float32)
-
-
-def get_probability(state, network):
-    return network(tf.expand_dims(state, 0))
-
-
-def get_acceptance_prob(state, new_state, network):
-    return get_probability(new_state, network) / (get_probability(state, network) + 1e-16)
-
-
-def generate_samples(problem_dim, network, num_samples, drop_first):
-    state = get_random_state_tensor(problem_dim)
-    samples = deque()
-    accepted = tf.constant(0.0)
-
-    for _ in range(num_samples):
-        n = tf.constant(randint(0, problem_dim))
-        permuted = swap_node_in_state(state, n)
-        accept_prob = get_acceptance_prob(state, permuted, network)
-        
-        if accept_prob >= random():
-            accepted += tf.constant(1.0, tf.float32)
-            state = permuted
-            
-        samples.append(state)
-        
-
-    for _ in range(drop_first):
-        samples.popleft()
-
-    return (tf.stack(samples), accepted)
-
-
-@tf.function
 def estimate_energy_of_state(state, extended_edge_list):
+    """Estimate energy of given state. JIT-compiled function.
+    Here we use the following formula:
+        E = Sum_{rows} (|Sum_{i} (edge_list_i * state_i)| - 2) / 2
+
+    That formula is equal to by-row computation but it can be effectively realized if Tensorflow.
+    It is significant more effective than Carleo-approach based on Hxx-matrix because here we use
+    the fact of diagonalization of Hxx in Z-basis.
+    
+    Parameters
+    ----------
+    state : tf.Tensor
+        State.
+    extended_edge_list : tf.Tensor
+        Sparse tensor with number of rows equals to the number of edges in Graph.
+        Each row of that tensor contain only two non-zero values. That values are
+        in positions of start node and end node of corresponded to that row edge.
+    
+    Returns
+    -------
+    tf.float32
+        Energy of state.
+    """
     return tf.reduce_sum(
         tf.math.abs(tf.sparse.reduce_sum(extended_edge_list * tf.expand_dims(state, 0), axis=1)) - 2.0
     ) / 2.0
@@ -81,11 +41,29 @@ def estimate_energy_of_state(state, extended_edge_list):
 
 @tf.function
 def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
+    """Compute regulirized stochastic reconfiguration matrix S of partial derivatives.
+    
+    Parameters
+    ----------
+    derivs : tf.Tensor
+        Tensor of derivatives that has shape (n_samples x n_wights)
+    num_samples : tf.int32
+        Number of real samples.
+    l2 : tf.float32
+        Regularization L2-lambda.
+    
+    Returns
+    -------
+    tf.Tensor
+        Matrix S.
+    """
     e_of_prod = tf.einsum("ki,kj", derivs, derivs) / num_samples
     avg_deriv = tf.reduce_mean(derivs, axis=0, keepdims=True)
     prod_of_e = tf.einsum("ki,kj", avg_deriv, avg_deriv)
     
     SS = e_of_prod - prod_of_e
+
+    # Compute regularization part
     reg_part = tf.linalg.diag(tf.ones((SS.shape[0], ), tf.float32) * l2)
     
     return SS + reg_part
@@ -93,105 +71,52 @@ def estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2):
 
 @tf.function
 def estimate_stochastic_gradients(derivs, energies, num_samples, l2):
+    """Compute stochastic derivatives (aka Natural gradient)
+    
+    Parameters
+    ----------
+    derivs : tf.Tensor
+        Tensor of derivatives that has shape (n_samples x n_wights)
+    energies : tf.Tensor
+        Tensor with energies that has shape (n_samples x 1)
+    num_samples : tf.int32
+        Number of real samples.
+    l2 : tf.float32
+        Regularization L2-lambda.
+    
+    Returns
+    -------
+    tf.Tensor
+        Natural derivatives.
+    """
     SS = estimate_stochastic_reconfiguration_matrix(derivs, num_samples, l2)
+
+    # Compute forces
     e_of_prod = tf.reduce_mean(tf.multiply(tf.expand_dims(energies, 1), derivs), axis=0, keepdims=True)
     prod_of_e = tf.reduce_mean(derivs, axis=0, keepdims=True) * tf.reduce_mean(energies)
-    
     forces = e_of_prod - prod_of_e
 
+    # Compute (S^-1 * F)
     return tf.linalg.cholesky_solve(SS, tf.linalg.adjoint(forces))
 
 
 @tf.function
 def get_out_and_grad(state, network):
+    """Get output of network and gradient of output by weights.
+    
+    Parameters
+    ----------
+    state : tf.Tensor
+        State.
+    network : tf.keras.Sequential
+        NN.
+    
+    Returns
+    -------
+    (tf.float32, List[tf.Tenor])
+        Output of NN and gradients.
+    """
     o = network(tf.expand_dims(state, 0))
     g = tf.gradients(o, network.trainable_variables)
 
     return o, g
-
-@tf.function
-def get_network_outs_and_energies(samples, network, edge_ext, n_samples):
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-    energies = tf.map_fn(
-        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
-        samples,
-        tf.float32,
-        back_prop=False,
-        parallel_iterations=n_samples
-    )
-
-    return (tf.expand_dims(tf.stack(network_outputs), 1), grads, energies)
-
-
-@tf.function
-def update_weights_step(samples, network, edge_ext, optimizer, num_layers, n_samples, l2):    
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
-    energies = tf.map_fn(
-        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
-        samples,
-        tf.float32,
-        parallel_iterations=n_samples
-    )
-
-    new_grads = []
-    all_in_once_grads = []
-    layers_shape = []
-    
-    for i in range(num_layers * 2):
-        # *2 because we have weights and biases for each layer
-        all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
-        layers_shape.append(all_in_once_grads[-1].shape[1])
-        
-    new_grads = estimate_stochastic_gradients(
-        tf.concat(all_in_once_grads, axis=1) / network_outputs,
-        energies, n_samples, l2
-    )
-    
-    new_grads = tf.split(new_grads, layers_shape, axis=0)
-        
-    optimizer.apply_gradients(
-        ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
-    )
-
-    return energies
-
-@tf.function
-def update_weights_step_with_simple_derivs(samples, network, edge_ext, n_samples, optimizer, num_layers):
-    network_outputs, grads = tf.vectorized_map(partial(get_out_and_grad, network=network), samples)
-    network_outputs = tf.reshape(tf.stack(network_outputs), (n_samples, 1))
-    energies = tf.map_fn(
-        partial(estimate_energy_of_state, extended_edge_list=edge_ext),
-        samples,
-        tf.float32,
-        parallel_iterations=n_samples
-    )
-    
-    avg_e = tf.math.reduce_mean(energies)
-    
-    all_in_once_grads = []
-    layers_shape = []
-    
-    for i in range(num_layers * 2):
-        # *2 because we have weights and biases for each layer
-        all_in_once_grads.append(tf.reshape(grads[i], (n_samples, -1)))
-        layers_shape.append(all_in_once_grads[-1].shape[1])
-        
-    final_grads = 2.0 * tf.concat(all_in_once_grads, axis=1) * (tf.expand_dims(energies, 1) - avg_e)
-    new_grads = tf.split(tf.reduce_mean(final_grads, axis=0), layers_shape, axis=0)
-    
-    optimizer.apply_gradients(
-        ((tf.reshape(g, weights.shape)), weights) for g, weights in zip(new_grads, network.trainable_variables)
-    )
-    
-    return energies
-
-
-def learning_step(problem_dim, network, num_samples, drop_first, edge_ext, optimizer, num_layers, l2):
-    samples, accepted = generate_samples(problem_dim, network, num_samples, drop_first)
-    num_real_samples = num_samples - drop_first
-
-    energies = update_weights_step(samples, network, edge_ext, optimizer, num_layers, num_real_samples, l2)
-    #energies = update_weights_step_with_simple_derivs(samples, network, edge_ext, num_real_samples, optimizer, num_layers)
-
-    return energies, accepted / tf.constant(num_samples, tf.float32)
