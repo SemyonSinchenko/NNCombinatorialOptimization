@@ -181,14 +181,6 @@ class NNMaxCutOptimizer(object):
             for g, weights in zip(self.__grads, self.network.trainable_variables)
         )
 
-        with self.__writer.as_default():
-            tf.summary.histogram(
-                "grads",
-                self.__grads,
-                step=self.__iteration,
-                buckets=50
-            )
-
     def __update_reg_lambda(self):
         lambda_ = self.__l2 * self.__l2_decay
         if lambda_ < self.__min_lambda:
