@@ -142,17 +142,18 @@ class NNMaxCutOptimizer(object):
     def __update_step(self):
         num_samples = self.__max_samples - self.__drop_first
 
-        tf.summary.scalar("min_energy", tf.math.reduce_min(self.__energies), step=self.__iteration)
-        tf.summary.scalar("avg_energy", tf.math.reduce_mean(self.__energies), step=self.__iteration)
-        tf.summary.scalar("variance_energy", tf.math.reduce_variance(self.__energies), step=self.__iteration)
-        tf.summary.scalar("acceptance_ration", self.__acceptance_ratio, step=self.__iteration)
+        with self.__writer.as_default():
+            tf.summary.scalar("min_energy", tf.math.reduce_min(self.__energies), step=self.__iteration)
+            tf.summary.scalar("avg_energy", tf.math.reduce_mean(self.__energies), step=self.__iteration)
+            tf.summary.scalar("variance_energy", tf.math.reduce_variance(self.__energies), step=self.__iteration)
+            tf.summary.scalar("acceptance_ration", self.__acceptance_ratio, step=self.__iteration)
 
-        tf.summary.histogram(
-            "network_outputs",
-            self.__network_outputs,
-            step=self.__iteration,
-            buckets=50
-        )
+            tf.summary.histogram(
+                "network_outputs",
+                self.__network_outputs,
+                step=self.__iteration,
+                buckets=50
+            )
 
         new_grads = []
         all_in_once_grads = []
@@ -180,12 +181,13 @@ class NNMaxCutOptimizer(object):
             for g, weights in zip(self.__grads, self.network.trainable_variables)
         )
 
-        tf.summary.histogram(
-            "grads",
-            self.__grads,
-            step=self.__iteration,
-            buckets=50
-        )
+        with self.__writer.as_default():
+            tf.summary.histogram(
+                "grads",
+                self.__grads,
+                step=self.__iteration,
+                buckets=50
+            )
 
     def __update_reg_lambda(self):
         lambda_ = self.__l2 * self.__l2_decay
