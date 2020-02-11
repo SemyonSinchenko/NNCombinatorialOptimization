@@ -139,3 +139,16 @@ def get_out_and_grad(state, network):
     g = tf.gradients(o, network.trainable_variables)
 
     return o, g
+
+
+class SumLayer(tf.keras.layers.Layer):
+    def __init__(self):
+        super(SumLayer, self).__init__()
+        self.trainable = False
+        self.output_shape = 1
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, input):
+        return tf.reduce_sum(input)
