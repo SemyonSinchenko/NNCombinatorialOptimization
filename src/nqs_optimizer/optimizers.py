@@ -75,7 +75,7 @@ class NNMaxCutOptimizer(object):
         print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
         
         self.network = tf.keras.Sequential(nn_layers)
-        self.__num_layers = len(nn_layers)
+        self.__num_layers = len(nn_layers) - 1 # The last layer is simple sum an isn't trainable
         self.__optimizer = optimizer
 
         self.__max_samples = max_samples
