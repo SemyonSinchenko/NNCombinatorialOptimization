@@ -145,7 +145,6 @@ class SumLayer(tf.keras.layers.Layer):
     def __init__(self):
         super(SumLayer, self).__init__()
         self.trainable = False
-        self.output_shape = 1
 
     def build(self, input_shape):
         pass
