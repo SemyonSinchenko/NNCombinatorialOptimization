@@ -70,7 +70,7 @@ class NNMaxCutOptimizer(object):
         ]
         nn_layers.append(tf.keras.layers.Dense(10, activation=tf.nn.relu))
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
-        nn_layers.append(tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=0)))
+        nn_layers.append(tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=1)))
 
         print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
         
@@ -137,8 +137,7 @@ class NNMaxCutOptimizer(object):
             # Compute acceptance probability: NN_out_new / NN_out_old
             accept_prob = tf.math.exp(tf.math.log(out_) - tf.math.log(out))
             
-            # Accept new state with probability Psi' / Psi
-            if accept_prob >= random():
+            # Accept new state with probability Psi' / Psi            if accept_prob >= random():
                 self.__acceptance_ratio += tf.constant(1.0, tf.float32)
                 self.__state = permuted
                 e = estimate_energy_of_state(self.__state, self.__edge_ext)
@@ -158,7 +157,7 @@ class NNMaxCutOptimizer(object):
         self.__acceptance_ratio /= tf.constant(float(self.__max_samples))
         self.__mcmc_samples = tf.stack(samples)
         self.__energies = tf.stack(energies)
-        self.__network_outputs = tf.expand_dims(tf.stack(outs), 1)
+        self.__network_outputs = tf.squeeze(tf.stack(outs), [2])
         self.__grads = list(grads)
 
     def __update_step(self):

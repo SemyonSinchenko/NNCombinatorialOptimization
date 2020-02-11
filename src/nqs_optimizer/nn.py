@@ -138,4 +138,4 @@ def get_out_and_grad(state, network):
     o = network(tf.expand_dims(state, 0))
     g = tf.gradients(o, network.trainable_variables)
 
-    return tf.squeeze(o), g
+    return o, g
