@@ -14,7 +14,6 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from .nn import (estimate_energy_of_state, estimate_stochastic_gradients,
-                 get_acceptance_prob, get_network_outs_and_energies,
                  get_out_and_grad, swap_node_in_state)
 from .opp import edge_list2extended_edge_list
 
