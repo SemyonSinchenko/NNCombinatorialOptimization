@@ -91,6 +91,7 @@ class NNMaxCutOptimizer(object):
         """Main fit method.
         """
         self.__iteration = 0
+        self.__generate_random_state()
 
         while self.__iteration <= self.__epochs:
             # Generate samples
@@ -117,7 +118,7 @@ class NNMaxCutOptimizer(object):
     def __mcmc_step(self):
         """Generate MCMC-samples
         """
-        self.__generate_random_state()
+        
         samples = deque()
         energies = deque()
         outs = deque()
