@@ -14,7 +14,7 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from .nn import (estimate_energy_of_state, estimate_stochastic_gradients,
-                 get_out_and_grad, swap_node_in_state, SumLayer)
+                 get_out_and_grad, swap_node_in_state)
 from .opp import edge_list2extended_edge_list
 
 
@@ -70,7 +70,7 @@ class NNMaxCutOptimizer(object):
         ]
         nn_layers.append(tf.keras.layers.Dense(10, activation=tf.nn.relu))
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
-        nn_layers.append(SumLayer())
+        nn_layers.append(tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=0)))
 
         print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
         
