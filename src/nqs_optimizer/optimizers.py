@@ -70,7 +70,7 @@ class NNMaxCutOptimizer(object):
         ]
         nn_layers.append(tf.keras.layers.Dense(10, activation=tf.nn.relu))
         nn_layers.insert(0, tf.keras.layers.Dense(layers[0], input_shape=(problem_dim, )))
-        nn_layers.insert(0, SumLayer())
+        nn_layers.insert(0, tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=0)))
 
         print("MaxCut problem for the Graph with %d nodes and %d edges" % (self.__num_nodes, len(edge_list)))
         
