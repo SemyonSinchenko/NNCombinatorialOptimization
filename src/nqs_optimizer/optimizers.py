@@ -158,7 +158,7 @@ class NNMaxCutOptimizer(object):
         self.__acceptance_ratio /= tf.constant(float(self.__max_samples))
         self.__mcmc_samples = tf.stack(samples)
         self.__energies = tf.stack(energies)
-        self.__network_outputs = tf.squeeze(tf.stack(outs), [2])
+        self.__network_outputs = tf.expand_dims(tf.stack(outs), 1)
         self.__grads = list(grads)
 
     def __update_step(self):
