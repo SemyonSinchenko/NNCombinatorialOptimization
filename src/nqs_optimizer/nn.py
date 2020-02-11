@@ -11,6 +11,20 @@ import tensorflow as tf
 
 
 @tf.function
+def swap_node_in_state(state, n):	def estimate_energy_of_state(state, extended_edge_list):
+    """Given a state and N swap N-th node in state. Do not modify input state.
+    
+    Arguments:	        E = Sum_{rows} (|Sum_{i} (edge_list_i * state_i)| - 2) / 2
+            state {tf.Tensor} -- state	
+            n {int} -- node number	
+            
+        Returns:	
+            tf.Tensor -- new state	
+    """	
+    return tf.multiply(state, tf.where(tf.range(0, state.shape[0], 1) == n, -1.0, 1.0))
+
+
+@tf.function
 def estimate_energy_of_state(state, extended_edge_list):
     """Estimate energy of given state. JIT-compiled function.
     Here we use the following formula:
