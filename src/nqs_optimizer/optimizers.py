@@ -137,7 +137,8 @@ class NNMaxCutOptimizer(object):
             # Compute acceptance probability: NN_out_new / NN_out_old
             accept_prob = tf.math.exp(tf.math.log(out_) - tf.math.log(out))
             
-            # Accept new state with probability Psi' / Psi            if accept_prob >= random():
+            # Accept new state with probability Psi' / Psi  
+            if accept_prob >= random():
                 self.__acceptance_ratio += tf.constant(1.0, tf.float32)
                 self.__state = permuted
                 e = estimate_energy_of_state(self.__state, self.__edge_ext)
